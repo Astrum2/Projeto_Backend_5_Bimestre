@@ -25,6 +25,16 @@ class UsersController {
         }
     }
 
+    static async isValidCpf(value: string, res: Response) {
+        const cleanCpf = value.replace(/[^\d]+/g, '');
+
+        if (cleanCpf.length !== 11 || !!cleanCpf.match(/(\d)\1{10}/)) {
+            return res.status(400).send({
+                message: "CPF inválido!"
+            });
+        }
+    }
+
     static async list(req: Request, res: Response) {
         const users = await User.findAll();
 
@@ -66,6 +76,11 @@ class UsersController {
             return emailValidation;
         }
 
+        const cpfValidation = await this.isValidCpf(cpf, res);
+        if (cpfValidation) {
+            return cpfValidation;
+        }
+
         const user = await User.create({ name: name, email: email, password: password, cpf: cpf });
         return res.status(201).send(user);
     }
@@ -85,13 +100,13 @@ class UsersController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const user = await User.findByPk(Number(id));
-        const { name, email, password, cpf, admin } = req.body;
+        const { name, password, cpf, admin } = req.body;
 
         if (!user) {
             return res.status(404).send({ message: "Usuário não encontrado!" });
         }
 
-        if (!name && !email && !password && !cpf && admin === undefined) {
+        if (!name && !password && !cpf && admin === undefined) {
             return res.status(400).send({
                 message: "Informe ao menos um campo para atualização!"
             });
@@ -104,14 +119,8 @@ class UsersController {
             }
         }
 
-        const emailValidation = await this.isValidEmail(email, res);
-        if (emailValidation) {
-            return emailValidation;
-        }
-
         await user.update({
             name: name ?? user.name,
-            email: email ?? user.email,
             password: password ?? user.password,
             cpf: cpf ?? user.cpf,
             admin: admin ?? user.admin,
