@@ -6,20 +6,30 @@ import Appointment from "../models/Appointment";
 class ReviewsController {
 
     static async list(req: Request, res: Response) {
-        const reviews = await Review.findAll();
+        const reviews = await Review.findAll({
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+                { model: Appointment, as: "appointment" },
+            ],
+        });
 
-        res.send(reviews);
+        return res.send(reviews);
     }
 
     static async getById(req: Request, res: Response) {
         const { id } = req.params;
-        const review = await Review.findByPk(Number(id));
+        const review = await Review.findByPk(Number(id), {
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+                { model: Appointment, as: "appointment" },
+            ],
+        });
 
         if (!review) {
-            return res.status(404).send({ message: "Avaliação não encontrada!"})
+            return res.status(404).send({ message: "Avaliação não encontrada!" });
         }
 
-        res.send(review);
+        return res.send(review);
     }
 
     static async create(req: Request, res: Response) {

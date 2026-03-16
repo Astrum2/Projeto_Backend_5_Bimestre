@@ -1,17 +1,33 @@
 import { Request, Response } from "express";
 import BarberSchedule from "../models/BarberSchedule";
+import Appointment from "../models/Appointment";
+import User from "../models/User";
+import Service from "../models/Service";
 
 class BarberScheduleController {
 
     static async list(req: Request, res: Response) {
-        const schedule = await BarberSchedule.findAll();
+        const schedule = await BarberSchedule.findAll({
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+                { model: Service, as: "service" },
+                { model: Appointment, as: "appointment" }
+            ],
+        });
+
 
         res.send(schedule);
     }
 
     static async getById(req: Request, res: Response) {
         const { id } = req.params;
-        const barberSchedule = await BarberSchedule.findByPk(Number(id));
+        const barberSchedule = await BarberSchedule.findByPk(Number(id), {
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+                { model: Service, as: "service" },
+                { model: Appointment, as: "appointment" }
+            ],
+        });
 
         if (!barberSchedule) {
             return res.status(404).send({ message: "Agenda não encontrada" })

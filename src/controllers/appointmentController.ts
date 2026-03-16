@@ -5,20 +5,30 @@ import Service from "../models/Service";
 
 class AppointmentsController {
     static async list(req: Request, res: Response) {
-        const appointments = await Appointment.findAll();
+        const appointments = await Appointment.findAll({
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+                { model: Service, as: "service" },
+            ],
+        });
 
-        res.send(appointments);
+        return res.send(appointments);
     }
 
     static async getById(req: Request, res: Response) {
         const { id } = req.params;
-        const appointment = await Appointment.findByPk(Number(id));
+        const appointment = await Appointment.findByPk(Number(id), {
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+                { model: Service, as: "service" },
+            ],
+        });
 
         if (!appointment) {
             return res.status(404).send({ message: "Agendamento não encontrado!" });
         }
 
-        res.send(appointment);
+        return res.send(appointment);
     }
 
     static async create(req: Request, res: Response) {
