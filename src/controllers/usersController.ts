@@ -14,6 +14,17 @@ class UsersController {
         }
     }
 
+    static async isValidEmail(value: string, res: Response) {
+        const email = value?.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+        if (!email || !emailRegex.test(email)) {
+            return res.status(400).send({
+                message: "E-mail inválido!"
+            });
+        }
+    }
+
     static async list(req: Request, res: Response) {
         const users = await User.findAll();
 
@@ -48,6 +59,11 @@ class UsersController {
         const passwordValidation = await this.isStrongPassword(password, res);
         if (passwordValidation) {
             return passwordValidation;
+        }
+
+        const emailValidation = await this.isValidEmail(email, res);
+        if (emailValidation) {
+            return emailValidation;
         }
 
         const user = await User.create({ name: name, email: email, password: password, cpf: cpf });
@@ -86,6 +102,11 @@ class UsersController {
             if (passwordValidation) {
                 return passwordValidation;
             }
+        }
+
+        const emailValidation = await this.isValidEmail(email, res);
+        if (emailValidation) {
+            return emailValidation;
         }
 
         await user.update({
