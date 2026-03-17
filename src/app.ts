@@ -20,6 +20,7 @@ router.post('/users', UsersController.create);
 router.get('/users/:id', UsersController.getById);
 router.put('/users/:id', UsersController.update);
 router.delete('/users/:id', UsersController.remove);
+router.post('/login', UsersController.login);
 
 router.get('/barbers', BarbersController.list);
 router.post('/barbers', BarbersController.create);

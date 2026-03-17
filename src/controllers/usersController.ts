@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import User from "../models/User";
+import bcrypt from "bcrypt";
 
 class UsersController {
 
@@ -54,34 +55,45 @@ class UsersController {
 
     static async create(req: Request, res: Response) {
         const { name, email, password, cpf } = req.body;
+        const passwordValidation = await this.isStrongPassword(password, res);
+        const emailValidation = await this.isValidEmail(email, res);
+        const cpfValidation = await this.isValidCpf(cpf, res);
 
         if (!name || !email || !password || !cpf) {
             return res.status(400).send({
                 message: "Nome, E-mail, CPF e a Senha são obrigatórios!"
             });
         } else {
-            const savedUser = await User.findOne({ where: { email: email } })
+            const savedUser = await User.findOne({ where: { email: email.trim() } });
             if (savedUser) {
-                return res.status(400).json({ message: "Usuário já existe com esse Email" })
+                return res.status(400).json({ message: "Usuário já existe com esse Email" });
             }
         }
 
-        const passwordValidation = await this.isStrongPassword(password, res);
+
         if (passwordValidation) {
             return passwordValidation;
         }
 
-        const emailValidation = await this.isValidEmail(email, res);
+
         if (emailValidation) {
             return emailValidation;
         }
 
-        const cpfValidation = await this.isValidCpf(cpf, res);
+
         if (cpfValidation) {
             return cpfValidation;
         }
 
-        const user = await User.create({ name: name, email: email, password: password, cpf: cpf });
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await User.create({
+            name: name,
+            email: email.trim(),
+            password: hashedPassword,
+            cpf: cpf
+        });
+
         return res.status(201).send(user);
     }
 
@@ -112,16 +124,20 @@ class UsersController {
             });
         }
 
+        let nextPassword = user.password;
+
         if (password !== undefined) {
             const passwordValidation = await this.isStrongPassword(password, res);
             if (passwordValidation) {
                 return passwordValidation;
             }
+
+            nextPassword = await bcrypt.hash(password, 10);
         }
 
         await user.update({
             name: name ?? user.name,
-            password: password ?? user.password,
+            password: nextPassword,
             cpf: cpf ?? user.cpf,
             admin: admin ?? user.admin,
         });
@@ -129,7 +145,46 @@ class UsersController {
         return res.send(user);
     }
 
+    static async login(req: Request, res: Response) {
+        const { email, password } = req.body;
 
+        if (!email || !password) {
+            return res.status(400).send({
+                message: "E-mail e senha são obrigatórios!"
+            });
+        }
+
+        const emailValidation = await this.isValidEmail(email, res);
+        if (emailValidation) {
+            return emailValidation;
+        }
+
+        const user = await User.findOne({ where: { email: email.trim() } });
+
+        if (!user) {
+            return res.status(401).send({
+                message: "E-mail ou senha inválidos!"
+            });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+
+        if (!isPasswordValid) {
+            return res.status(401).send({
+                message: "E-mail ou senha inválidos!"
+            });
+        }
+
+        return res.status(200).send({
+            message: "Login realizado com sucesso!",
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                admin: user.admin
+            }
+        });
+    }
 
 }
 
