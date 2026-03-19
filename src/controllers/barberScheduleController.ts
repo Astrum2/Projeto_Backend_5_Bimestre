@@ -1,8 +1,23 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
+import { randomUUID } from "crypto";
 import BarberSchedule from "../models/BarberSchedule";
 import Appointment from "../models/Appointment";
 import User from "../models/User";
 import Service from "../models/Service";
+
+const SLOT_MINUTES = 15;
+
+function toMinutes(time: string): number {
+    const [hours, minutes] = time.split(":");
+    return Number(hours) * 60 + Number(minutes);
+}
+
+function toTime(totalMinutes: number): string {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":00";
+}
 
 class BarberScheduleController {
 
@@ -37,38 +52,83 @@ class BarberScheduleController {
     }
 
     static async create(req: Request, res: Response) {
-        const {
-            barber_id,
-            date,
-            start,
-            end,
-            duration_minutes,
-            status,
-            appointment_id,
-            slot_group,
-            notes,
-        } = req.body;
+        const { barber_id, date, start, appointment_id, status, notes } = req.body;
 
-        if (barber_id === undefined || !date || !start || !end || duration_minutes === undefined) {
+        if (barber_id === undefined || !date || !start || appointment_id === undefined) {
             return res.status(400).send({
-                message: "barber_id, date, start, end e duration_minutes são obrigatórios!",
+                message: "barber_id, date, start e appointment_id são obrigatórios!",
             });
         }
 
+        const parsedBarberId = Number(barber_id);
+        const parsedAppointmentId = Number(appointment_id);
 
-        const barberSchedule = await BarberSchedule.create({
-            barber_id: barber_id,
-            date,
-            start,
-            end,
-            duration_minutes: duration_minutes,
-            status: status ?? "available",
-            appointment_id: appointment_id,
-            slot_group: slot_group ?? null,
-            notes: notes ?? null,
+        if (
+            !Number.isInteger(parsedBarberId) || parsedBarberId <= 0 ||
+            !Number.isInteger(parsedAppointmentId) || parsedAppointmentId <= 0
+        ) {
+            return res.status(400).send({
+                message: "barber_id e appointment_id devem ser inteiros válidos!",
+            });
+        }
+
+        const appointment = await Appointment.findByPk(parsedAppointmentId);
+        if (!appointment) {
+            return res.status(404).send({ message: "Agendamento não encontrado!" });
+        }
+
+        const service = await Service.findByPk(appointment.service_id);
+        if (!service) {
+            return res.status(404).send({ message: "Serviço do agendamento não encontrado!" });
+        }
+
+        const totalDuration = Number(service.duration_minutes);
+        if (!Number.isFinite(totalDuration) || totalDuration <= 0) {
+            return res.status(400).send({ message: "Duração do serviço inválida!" });
+        }
+
+        const slotsCount = Math.ceil(totalDuration / SLOT_MINUTES);
+        const groupId = randomUUID();
+        const firstMinute = toMinutes(start);
+
+        const slots = Array.from({ length: slotsCount }, (_, index) => {
+            const slotStart = firstMinute + index * SLOT_MINUTES;
+            const slotEnd = slotStart + SLOT_MINUTES;
+
+            return {
+                barber_id: parsedBarberId,
+                date,
+                start: toTime(slotStart),
+                end: toTime(slotEnd),
+                duration_minutes: SLOT_MINUTES,
+                status: status ?? "booked",
+                appointment_id: parsedAppointmentId,
+                slot_group: groupId,
+                notes: notes ?? null,
+            };
         });
 
-        return res.status(201).send(barberSchedule);
+        const starts = slots.map((slot) => slot.start);
+
+        const conflict = await BarberSchedule.findOne({
+            where: {
+                barber_id: parsedBarberId,
+                date,
+                start: { [Op.in]: starts },
+            },
+        });
+
+        if (conflict) {
+            return res.status(409).send({ message: "Já existe slot ocupado nesse horário." });
+        }
+
+        const created = await BarberSchedule.bulkCreate(slots);
+
+        return res.status(201).send({
+            slot_group: groupId,
+            slots_created: created.length,
+            slots: created,
+        });
     }
 
     static async update(req: Request, res: Response) {

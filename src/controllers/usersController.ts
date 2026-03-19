@@ -5,12 +5,11 @@ import bcrypt from "bcrypt";
 class UsersController {
 
     static async isStrongPassword(value: string, res: Response) {
-        const letterCount = (value.match(/[A-Za-z]/g) || []).length;
         const hasUpperCase = /[A-Z]/.test(value);
         const hasNumber = /\d/.test(value);
         const hasSpecial = /[^A-Za-z0-9]/.test(value);
 
-        if (letterCount < 7 || !hasUpperCase || !hasNumber || !hasSpecial) {
+        if (value.length < 7 || !hasUpperCase || !hasNumber || !hasSpecial) {
             return res.status(400).send({ message: "A senha deve conter ao mínimo: 7 letras, um caractere maisculo, um número e um caractere especial" });
         }
     }
@@ -27,9 +26,8 @@ class UsersController {
     }
 
     static async isValidCpf(value: string, res: Response) {
-        const cleanCpf = value.replace(/[^\d]+/g, '');
 
-        if (cleanCpf.length !== 11 || !!cleanCpf.match(/(\d)\1{10}/)) {
+        if (value.length !== 11 || !!value.match(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/)) {
             return res.status(400).send({
                 message: "CPF inválido!"
             });
@@ -55,9 +53,9 @@ class UsersController {
 
     static async create(req: Request, res: Response) {
         const { name, email, password, cpf } = req.body;
-        const passwordValidation = await this.isStrongPassword(password, res);
-        const emailValidation = await this.isValidEmail(email, res);
-        const cpfValidation = await this.isValidCpf(cpf, res);
+        const passwordValidation = await UsersController.isStrongPassword(password, res);
+        const emailValidation = await UsersController.isValidEmail(email, res);
+        const cpfValidation = await UsersController.isValidCpf(cpf, res);
 
         if (!name || !email || !password || !cpf) {
             return res.status(400).send({
@@ -85,11 +83,11 @@ class UsersController {
             return cpfValidation;
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
         const user = await User.create({
             name: name,
-            email: email.trim(),
+            email: email.trim().toLowerCase(),
             password: hashedPassword,
             cpf: cpf
         });
@@ -127,12 +125,12 @@ class UsersController {
         let nextPassword = user.password;
 
         if (password !== undefined) {
-            const passwordValidation = await this.isStrongPassword(password, res);
+            const passwordValidation = await UsersController.isStrongPassword(password, res);
             if (passwordValidation) {
                 return passwordValidation;
             }
 
-            nextPassword = await bcrypt.hash(password, 10);
+            nextPassword = await bcrypt.hash(password.trim(), 10);
         }
 
         await user.update({
@@ -154,34 +152,36 @@ class UsersController {
             });
         }
 
-        const emailValidation = await this.isValidEmail(email, res);
+        const emailValidation = await UsersController.isValidEmail(email, res);
         if (emailValidation) {
             return emailValidation;
         }
 
-        const user = await User.findOne({ where: { email: email.trim() } });
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await User.findOne({
+            where: { email: normalizedEmail },
+            attributes: ["id", "name", "email", "admin", "password"],
+        });
 
-        if (!user) {
-            return res.status(401).send({
-                message: "E-mail ou senha inválidos!"
-            });
+        const hash = user?.getDataValue("password");
+        const passwordFound = Boolean(hash);
+        const passwordMatches = hash
+            ? await bcrypt.compare(password.trim(), hash)
+            : false;
+
+        if (!user || !passwordFound || !passwordMatches) {
+            return res.status(401).send({ message: "E-mail ou senha inválidos!" });
         }
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        if (!isPasswordValid) {
-            return res.status(401).send({
-                message: "E-mail ou senha inválidos!"
-            });
-        }
+        const userData = user.get({ plain: true });
 
         return res.status(200).send({
             message: "Login realizado com sucesso!",
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                admin: user.admin
+                id: userData.id,
+                name: userData.name,
+                email: userData.email,
+                admin: userData.admin
             }
         });
     }
