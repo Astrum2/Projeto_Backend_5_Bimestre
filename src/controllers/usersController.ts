@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcrypt";
+import jwt, { Secret, SignOptions } from "jsonwebtoken";
 
 class UsersController {
 
@@ -142,50 +143,6 @@ class UsersController {
 
         return res.send(user);
     }
-
-    static async login(req: Request, res: Response) {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).send({
-                message: "E-mail e senha são obrigatórios!"
-            });
-        }
-
-        const emailValidation = await UsersController.isValidEmail(email, res);
-        if (emailValidation) {
-            return emailValidation;
-        }
-
-        const normalizedEmail = email.trim().toLowerCase();
-        const user = await User.findOne({
-            where: { email: normalizedEmail },
-            attributes: ["id", "name", "email", "admin", "password"],
-        });
-
-        const hash = user?.getDataValue("password");
-        const passwordFound = Boolean(hash);
-        const passwordMatches = hash
-            ? await bcrypt.compare(password.trim(), hash)
-            : false;
-
-        if (!user || !passwordFound || !passwordMatches) {
-            return res.status(401).send({ message: "E-mail ou senha inválidos!" });
-        }
-
-        const userData = user.get({ plain: true });
-
-        return res.status(200).send({
-            message: "Login realizado com sucesso!",
-            user: {
-                id: userData.id,
-                name: userData.name,
-                email: userData.email,
-                admin: userData.admin
-            }
-        });
-    }
-
 }
 
 export default UsersController;

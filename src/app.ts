@@ -5,6 +5,7 @@ import ReviewsController from './controllers/reviewsController';
 import ServicesController from './controllers/servicesController';
 import AppointmentsController from './controllers/appointmentController';
 import BarberScheduleController from "./controllers/barberScheduleController";
+import AuthController from './controllers/authController';
 
 const app = express();
 app.use(express.json());
@@ -15,12 +16,15 @@ router.get('/', (req: Request, res: Response) => {
     res.send("Hello World (typescript)");
 });
 
+//Rota de Autenticação
+router.post('/login', AuthController.login);
+
 router.get('/users', UsersController.list);
 router.post('/users', UsersController.create);
 router.get('/users/:id', UsersController.getById);
 router.put('/users/:id', UsersController.update);
 router.delete('/users/:id', UsersController.remove);
-router.post('/login', UsersController.login);
+
 
 router.get('/barbers', BarbersController.list);
 router.post('/barbers', BarbersController.create);
