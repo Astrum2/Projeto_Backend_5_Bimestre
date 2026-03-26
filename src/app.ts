@@ -7,8 +7,21 @@ import AppointmentsController from './controllers/appointmentController';
 import BarberScheduleController from "./controllers/barberScheduleController";
 import AuthController from './controllers/authController';
 
+
+
 const app = express();
 app.use(express.json());
+
+const cors = require("cors");
+const corsOptions = {
+origin: "http://localhost:3000",
+methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+allowedHeaders: ["Content-Type", "Authorization"],
+credentials: false
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 const router: Router = Router();
 
