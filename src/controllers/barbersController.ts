@@ -1,10 +1,15 @@
 import { Request, Response } from "express";
 import Barber from "../models/Barber";
+import User from "../models/User";
 
 class BarbersController {
 
     static async list(req: Request, res: Response) {
-        const barbers = await Barber.findAll();
+        const barbers = await Barber.findAll({
+            include: [
+                { model: User, as: "user", attributes: { exclude: ["password"] } },
+            ],
+        });
 
         res.send(barbers);
     }
@@ -29,7 +34,7 @@ class BarbersController {
             });
         }
 
-        const barber = await Barber.create({name: name, user_id: user_id, phone:phone});
+        const barber = await Barber.create({name: name, user_id: user_id, phone:phone ?? null});
         res.send(barber);
     }
 
