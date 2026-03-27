@@ -3,6 +3,7 @@ import sequelize from "../config/database";
 
 class Barber extends Model {
     public id!: number;
+    public user_id!: number;
     public name!: string;
     public phone!: string;
     public active!: boolean;
@@ -16,13 +17,24 @@ Barber.init(
             autoIncrement: true,
             primaryKey: true,
         },
+        user_id: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            unique: true,
+            references: {
+                model: "users",
+                key: "id",
+            },
+            onUpdate: "CASCADE",
+            onDelete: "RESTRICT",
+        },
         name: {
             type: DataTypes.STRING,
             allowNull: false,
         },
         phone: {
             type: DataTypes.STRING,
-            allowNull: false,
+            allowNull: true,
         },
         active: {
             type: DataTypes.BOOLEAN,

@@ -1,5 +1,6 @@
-import { DataTypes, Model } from "sequelize";
+import { DataTypes, Model, Transaction } from "sequelize";
 import sequelize from "../config/database";
+import Barber from "./Barber";
 
 class User extends Model {
   declare id: number;
@@ -34,9 +35,6 @@ User.init(
     cpf: {
       type: DataTypes.STRING,
       allowNull: false,
-      validate: {
-        is: /^\d{3}\.\d{3}\.\d{3}-\d{2}$/
-      }
     },
     admin: {
       type: DataTypes.BOOLEAN,
@@ -52,7 +50,10 @@ User.init(
     sequelize,
     tableName: "users",
     timestamps: false,
-  },
+  }
 );
+
+User.hasOne(Barber, { foreignKey: "user_id", as: "barber" });
+Barber.belongsTo(User, { foreignKey: "user_id", as: "user" })
 
 export default User;

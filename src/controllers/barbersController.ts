@@ -21,15 +21,15 @@ class BarbersController {
     }
 
     static async create(req: Request, res: Response) {
-        const { name, phone } = req.body;
+        const { name, user_id, phone } = req.body;
 
-        if (!name || !phone) {
+        if (!name) {
             return res.status(400).send({
-                message: "Nome e Telefone são obrigatórios!"
+                message: "Nome é obrigatórios!"
             });
         }
 
-        const barber = await Barber.create({name: name, phone:phone});
+        const barber = await Barber.create({name: name, user_id: user_id, phone:phone});
         res.send(barber);
     }
 

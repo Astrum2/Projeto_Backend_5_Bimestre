@@ -27,8 +27,15 @@ class UsersController {
     }
 
     static async isValidCpf(value: string, res: Response) {
+        const cpf = value?.replace(/\D/g, "");
 
-        if (value.length !== 11 || !!value.match(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/)) {
+        if (!cpf || cpf.length !== 11) {
+            return res.status(400).send({
+                message: "CPF inválido!"
+            });
+        }
+
+        if (/^(\d)\1{10}$/.test(cpf)) {
             return res.status(400).send({
                 message: "CPF inválido!"
             });
