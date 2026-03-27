@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcrypt";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
+import BarbersController from "./barbersController";
 
 class UsersController {
 
@@ -60,7 +61,7 @@ class UsersController {
     }
 
     static async create(req: Request, res: Response) {
-        const { name, email, password, cpf } = req.body;
+        const { name, email, password, cpf, admin } = req.body;
         const passwordValidation = await UsersController.isStrongPassword(password, res);
         const emailValidation = await UsersController.isValidEmail(email, res);
         const cpfValidation = await UsersController.isValidCpf(cpf, res);
@@ -97,8 +98,19 @@ class UsersController {
             name: name,
             email: email.trim().toLowerCase(),
             password: hashedPassword,
-            cpf: cpf
+            cpf: cpf,
+            admin: admin ?? null
         });
+
+        const isAdmin = admin === 1 || admin === true || admin === "1";
+
+        if (isAdmin) {
+            await BarbersController.createFromData({
+                name: user.name,
+                user_id: user.id,
+                phone: req.body.phone ?? null,
+            });
+        }
 
         return res.status(201).send(user);
     }
