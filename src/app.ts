@@ -6,6 +6,7 @@ import ServicesController from './controllers/servicesController';
 import AppointmentsController from './controllers/appointmentController';
 import BarberScheduleController from "./controllers/barberScheduleController";
 import AuthController from './controllers/authController';
+import authMiddleware from './middlewares/authMiddleware';
 
 
 
@@ -32,42 +33,42 @@ router.get('/', (req: Request, res: Response) => {
 //Rota de Autenticação
 router.post('/login', AuthController.login);
 
-router.get('/users', UsersController.list);
+router.get('/users', authMiddleware, UsersController.list);
 router.post('/users', UsersController.create);
-router.get('/users/:id', UsersController.getById);
-router.put('/users/:id', UsersController.update);
-router.delete('/users/:id', UsersController.remove);
+router.get('/users/:id', authMiddleware, UsersController.getById);
+router.put('/users/:id', authMiddleware, UsersController.update);
+router.delete('/users/:id', authMiddleware, UsersController.remove);
 
 
-router.get('/barbers', BarbersController.list);
+router.get('/barbers', authMiddleware, BarbersController.list);
 router.post('/barbers', BarbersController.create);
-router.get('/barbers/:id', BarbersController.getById);
-router.put('/barbers/:id', BarbersController.update);
-router.delete('/barbers/:id', BarbersController.remove);
+router.get('/barbers/:id', authMiddleware, BarbersController.getById);
+router.put('/barbers/:id', authMiddleware, BarbersController.update);
+router.delete('/barbers/:id', authMiddleware, BarbersController.remove);
 
 router.get('/reviews', ReviewsController.list);
-router.post('/reviews', ReviewsController.create);
-router.get('/reviews/:id', ReviewsController.getById);
-router.put('/reviews/:id', ReviewsController.update);
-router.delete('/reviews/:id', ReviewsController.remove);
+router.post('/reviews', authMiddleware, ReviewsController.create);
+router.get('/reviews/:id', authMiddleware, ReviewsController.getById);
+router.put('/reviews/:id', authMiddleware, ReviewsController.update);
+router.delete('/reviews/:id', authMiddleware, ReviewsController.remove);
 
 router.get('/services', ServicesController.list);
-router.post('/services', ServicesController.create);
+router.post('/services', authMiddleware, ServicesController.create);
 router.get('/services/:id', ServicesController.getById);
-router.put('/services/:id', ServicesController.update);
-router.delete('/services/:id', ServicesController.remove);
+router.put('/services/:id', authMiddleware, ServicesController.update);
+router.delete('/services/:id', authMiddleware, ServicesController.remove);
 
-router.get('/appointments', AppointmentsController.list);
-router.post('/appointments', AppointmentsController.create);
-router.get('/appointments/:id', AppointmentsController.getById);
-router.put('/appointments/:id', AppointmentsController.update);
-router.delete('/appointments/:id', AppointmentsController.remove);
+router.get('/appointments', authMiddleware, AppointmentsController.list);
+router.post('/appointments', authMiddleware, AppointmentsController.create);
+router.get('/appointments/:id', authMiddleware, AppointmentsController.getById);
+router.put('/appointments/:id', authMiddleware, AppointmentsController.update);
+router.delete('/appointments/:id', authMiddleware, AppointmentsController.remove);
 
-router.get("/barber-schedules", BarberScheduleController.list);
-router.post("/barber-schedules", BarberScheduleController.create);
-router.get("/barber-schedules/:id", BarberScheduleController.getById);
-router.put("/barber-schedules/:id", BarberScheduleController.update);
-router.delete("/barber-schedules/:id", BarberScheduleController.remove);
+router.get("/barber-schedules", authMiddleware, BarberScheduleController.list);
+router.post("/barber-schedules", authMiddleware, BarberScheduleController.create);
+router.get("/barber-schedules/:id", authMiddleware, BarberScheduleController.getById);
+router.put("/barber-schedules/:id", authMiddleware, BarberScheduleController.update);
+router.delete("/barber-schedules/:id", authMiddleware, BarberScheduleController.remove);
 
 
 
