@@ -1,18 +1,60 @@
 import { Request, Response } from "express";
-import User from "../models/User";
 import bcrypt from "bcrypt";
-import jwt, { Secret, SignOptions } from "jsonwebtoken";
+import User from "../models/User";
 import BarbersController from "./barbersController";
 
 class UsersController {
+    static normalizeCpf(value: string) {
+        return value?.replace(/\D/g, "") ?? "";
+    }
+
+    static isCpfValid(cpf: string) {
+        const normalizedCpf = UsersController.normalizeCpf(cpf);
+
+        if (!normalizedCpf || normalizedCpf.length !== 11) {
+            return false;
+        }
+
+        if (/^(\d)\1{10}$/.test(normalizedCpf)) {
+            return false;
+        }
+
+        let sum = 0;
+        for (let i = 0; i < 9; i++) {
+            sum += parseInt(normalizedCpf[i], 10) * (10 - i);
+        }
+
+        let remainder = (sum * 10) % 11;
+        if (remainder === 10) remainder = 0;
+        if (remainder !== parseInt(normalizedCpf[9], 10)) {
+            return false;
+        }
+
+        sum = 0;
+        for (let i = 0; i < 10; i++) {
+            sum += parseInt(normalizedCpf[i], 10) * (11 - i);
+        }
+
+        remainder = (sum * 10) % 11;
+        if (remainder === 10) remainder = 0;
+        if (remainder !== parseInt(normalizedCpf[10], 10)) {
+            return false;
+        }
+
+        return true;
+    }
 
     static async isStrongPassword(value: string, res: Response) {
-        const hasUpperCase = /[A-Z]/.test(value);
-        const hasNumber = /\d/.test(value);
-        const hasSpecial = /[^A-Za-z0-9]/.test(value);
+        const password = value?.trim();
 
-        if (value.length < 7 || !hasUpperCase || !hasNumber || !hasSpecial) {
-            return res.status(400).send({ message: "A senha deve conter ao mínimo: 7 letras, um caractere maisculo, um número e um caractere especial" });
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+        if (!password || password.length < 7 || !hasUpperCase || !hasNumber || !hasSpecial) {
+            return res.status(400).send({
+                message: "A senha deve conter no mínimo 7 caracteres, uma letra maiúscula, um número e um caractere especial"
+            });
         }
     }
 
@@ -28,15 +70,7 @@ class UsersController {
     }
 
     static async isValidCpf(value: string, res: Response) {
-        const cpf = value?.replace(/\D/g, "");
-
-        if (!cpf || cpf.length !== 11) {
-            return res.status(400).send({
-                message: "CPF inválido!"
-            });
-        }
-
-        if (/^(\d)\1{10}$/.test(cpf)) {
+        if (!UsersController.isCpfValid(value)) {
             return res.status(400).send({
                 message: "CPF inválido!"
             });
@@ -54,7 +88,7 @@ class UsersController {
         const user = await User.findByPk(Number(id));
 
         if (!user) {
-            return res.status(404).send({ message: "Usuário não encontrado!" })
+            return res.status(404).send({ message: "Usuário não encontrado!" });
         }
 
         res.send(user);
@@ -62,34 +96,34 @@ class UsersController {
 
     static async create(req: Request, res: Response) {
         const { name, email, password, cpf, admin } = req.body;
-        const passwordValidation = await UsersController.isStrongPassword(password, res);
-        const emailValidation = await UsersController.isValidEmail(email, res);
-        const cpfValidation = await UsersController.isValidCpf(cpf, res);
 
         if (!name || !email || !password || !cpf) {
             return res.status(400).send({
                 message: "Nome, E-mail, CPF e a Senha são obrigatórios!"
             });
-        } else {
-            const savedUser = await User.findOne({ where: { email: email.trim() } });
-            if (savedUser) {
-                return res.status(400).json({ message: "Usuário já existe com esse Email" });
-            }
         }
 
-
+        const passwordValidation = await UsersController.isStrongPassword(password, res);
         if (passwordValidation) {
             return passwordValidation;
         }
 
-
+        const emailValidation = await UsersController.isValidEmail(email, res);
         if (emailValidation) {
             return emailValidation;
         }
 
-
+        const cpfValidation = await UsersController.isValidCpf(cpf, res);
         if (cpfValidation) {
             return cpfValidation;
+        }
+
+        const savedUser = await User.findOne({
+            where: { email: email.trim().toLowerCase() }
+        });
+
+        if (savedUser) {
+            return res.status(400).json({ message: "Usuário já existe com esse Email" });
         }
 
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
@@ -98,8 +132,8 @@ class UsersController {
             name: name,
             email: email.trim().toLowerCase(),
             password: hashedPassword,
-            cpf: cpf,
-            admin: admin ?? null
+            cpf: UsersController.normalizeCpf(cpf),
+            admin: admin ?? 0
         });
 
         const isAdmin = admin === 1 || admin === true || admin === "1";
@@ -153,10 +187,17 @@ class UsersController {
             nextPassword = await bcrypt.hash(password.trim(), 10);
         }
 
+        if (cpf !== undefined) {
+            const cpfValidation = await UsersController.isValidCpf(cpf, res);
+            if (cpfValidation) {
+                return cpfValidation;
+            }
+        }
+
         await user.update({
             name: name ?? user.name,
             password: nextPassword,
-            cpf: cpf ?? user.cpf,
+            cpf: cpf !== undefined ? UsersController.normalizeCpf(cpf) : user.cpf,
             admin: admin ?? user.admin,
         });
 
