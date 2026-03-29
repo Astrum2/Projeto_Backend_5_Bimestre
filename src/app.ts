@@ -14,8 +14,23 @@ const app = express();
 app.use(express.json());
 
 const cors = require("cors");
+
+const allowedOrigins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+];
+
 const corsOptions = {
-origin: "http://localhost:3000",
+origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+    }
+
+    callback(new Error("Origem nao permitida pelo CORS"));
+},
 methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 allowedHeaders: ["Content-Type", "Authorization"],
 credentials: false
