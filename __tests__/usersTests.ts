@@ -64,9 +64,9 @@ describe("UsersController", () => {
 
     describe("create", () => {
         it("deve criar usuário com email normalizado e senha hasheada", async () => {
-            mockRequest.body = { name: "Ana", email: "  ANA@MAIL.COM  ", password: "Senha1!", cpf: "12345678901" };
+            mockRequest.body = { name: "Ana", email: "  ANA@MAIL.COM  ", password: "Senha1!", cpf: "529.982.247-25" };
 
-            const createdUser = { id: 10, name: "Ana", email: "ana@mail.com", password: "hashed-password", cpf: "12345678901", admin: false };
+            const createdUser = { id: 10, name: "Ana", email: "ana@mail.com", password: "hashed-password", cpf: "52998224725", admin: 0 };
 
             (User.findOne as jest.Mock).mockResolvedValue(null);
             (bcrypt.hash as jest.Mock).mockResolvedValue("hashed-password");
@@ -74,15 +74,15 @@ describe("UsersController", () => {
 
             await UsersController.create(mockRequest as Request, mockResponse as Response);
 
-            expect(User.findOne).toHaveBeenCalledWith({ where: { email: "ANA@MAIL.COM" } });
+            expect(User.findOne).toHaveBeenCalledWith({ where: { email: "ana@mail.com" } });
             expect(bcrypt.hash).toHaveBeenCalledWith("Senha1!", 10);
-            expect(User.create).toHaveBeenCalledWith({ name: "Ana", email: "ana@mail.com", password: "hashed-password", cpf: "12345678901" });
+            expect(User.create).toHaveBeenCalledWith({ name: "Ana", email: "ana@mail.com", password: "hashed-password", cpf: "52998224725", admin: 0 });
             expect(mockResponse.status).toHaveBeenCalledWith(201);
             expect(mockResponse.send).toHaveBeenCalledWith(createdUser);
         });
 
         it("deve retornar 400 quando já existir usuário com o email", async () => {
-            mockRequest.body = { name: "Ana", email: "ana@mail.com", password: "Senha1!", cpf: "12345678901" };
+            mockRequest.body = { name: "Ana", email: "ana@mail.com", password: "Senha1!", cpf: "52998224725" };
 
             (User.findOne as jest.Mock).mockResolvedValue({ id: 1, email: "ana@mail.com" });
 
@@ -102,7 +102,7 @@ describe("UsersController", () => {
 
             expect(mockResponse.status).toHaveBeenCalledWith(400);
             expect(mockResponse.send).toHaveBeenCalledWith({
-                message: "A senha deve conter ao mínimo: 7 letras, um caractere maisculo, um número e um caractere especial",
+                message: "A senha deve conter no mínimo 7 caracteres, uma letra maiúscula, um número e um caractere especial",
             });
             expect(User.create).not.toHaveBeenCalled();
         });

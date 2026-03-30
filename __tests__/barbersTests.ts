@@ -1,8 +1,22 @@
 import { Request, Response } from "express";
-import BarbersController from "../src/controllers/barbersController";
-import Barber from "../src/models/Barber";
+const barberModelMock = {
+    findAll: jest.fn(),
+    findByPk: jest.fn(),
+    create: jest.fn(),
+};
 
-jest.mock("../src/models/Barber");
+jest.mock("../src/models/Barber", () => ({
+    __esModule: true,
+    default: barberModelMock,
+}));
+
+jest.mock("../src/models/User", () => ({
+    __esModule: true,
+    default: {},
+}));
+
+const BarbersController = require("../src/controllers/barbersController").default;
+const Barber = require("../src/models/Barber").default;
 
 describe("BarbersController", () => {
     let mockRequest: Partial<Request>;
@@ -59,7 +73,7 @@ describe("BarbersController", () => {
 
     describe("create", () => {
         it("deve criar um barbeiro", async () => {
-            const body = { name: "Arthur", phone: "11999999999" };
+            const body = { name: "Arthur", user_id: 1, phone: "11999999999" };
             const createdBarber = { id: 1, ...body, active: true };
 
             mockRequest.body = body;
@@ -71,13 +85,13 @@ describe("BarbersController", () => {
             expect(mockResponse.send).toHaveBeenCalledWith(createdBarber);
         });
 
-        it("deve retornar 400 quando name ou phone nao forem enviados", async () => {
-            mockRequest.body = { name: "Arthur" };
+        it("deve retornar 400 quando name nao for enviado", async () => {
+            mockRequest.body = { user_id: 1, phone: "11999999999" };
 
             await BarbersController.create(mockRequest as Request, mockResponse as Response);
 
             expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.send).toHaveBeenCalledWith({ message: "Nome e Telefone são obrigatórios!" });
+            expect(mockResponse.send).toHaveBeenCalledWith({ message: "Nome é obrigatórios!" });
         });
     });
 
