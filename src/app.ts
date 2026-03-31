@@ -55,7 +55,7 @@ router.put('/users/:id', authMiddleware, UsersController.update);
 router.delete('/users/:id', authMiddleware, UsersController.remove);
 
 
-router.get('/barbers', authMiddleware, BarbersController.list);
+router.get('/barbers', BarbersController.list);
 router.post('/barbers', BarbersController.create);
 router.get('/barbers/:id', authMiddleware, BarbersController.getById);
 router.put('/barbers/:id', authMiddleware, BarbersController.update);

@@ -5,6 +5,7 @@ class Barber extends Model {
     public id!: number;
     public user_id!: number;
     public name!: string;
+    public photo!: string;
     public phone!: string;
     public active!: boolean;
     public created_at!: Date;
@@ -31,6 +32,10 @@ Barber.init(
         name: {
             type: DataTypes.STRING,
             allowNull: false,
+        },
+        photo: {
+            type: DataTypes.STRING,
+            allowNull: true,
         },
         phone: {
             type: DataTypes.STRING,

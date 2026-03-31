@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 const barberModelMock = {
     findAll: jest.fn(),
     findByPk: jest.fn(),
+    findOne: jest.fn(),
     create: jest.fn(),
 };
 
@@ -73,15 +74,18 @@ describe("BarbersController", () => {
 
     describe("create", () => {
         it("deve criar um barbeiro", async () => {
-            const body = { name: "Arthur", user_id: 1, phone: "11999999999" };
+            const body = { name: "Arthur", user_id: 1, phone: "11999999999", photo: "https://cdn.exemplo.com/arthur.jpg" };
             const createdBarber = { id: 1, ...body, active: true };
 
             mockRequest.body = body;
+            (Barber.findOne as jest.Mock).mockResolvedValue(null);
             (Barber.create as jest.Mock).mockResolvedValue(createdBarber);
 
             await BarbersController.create(mockRequest as Request, mockResponse as Response);
 
+            expect(Barber.findOne).toHaveBeenCalledWith({ where: { user_id: 1 } });
             expect(Barber.create).toHaveBeenCalledWith(body);
+            expect(mockResponse.status).toHaveBeenCalledWith(201);
             expect(mockResponse.send).toHaveBeenCalledWith(createdBarber);
         });
 
@@ -91,7 +95,7 @@ describe("BarbersController", () => {
             await BarbersController.create(mockRequest as Request, mockResponse as Response);
 
             expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.send).toHaveBeenCalledWith({ message: "Nome é obrigatórios!" });
+            expect(mockResponse.send).toHaveBeenCalledWith({ message: "Nome é obrigatório!" });
         });
     });
 
@@ -123,7 +127,7 @@ describe("BarbersController", () => {
 
     describe("update", () => {
         it("deve atualizar apenas os campos enviados", async () => {
-            const mockBarber = { id: 1, name: "Arthur", phone: "11999999999", active: true, update: jest.fn().mockResolvedValue(undefined) };
+            const mockBarber = { id: 1, name: "Arthur", phone: "11999999999", active: true, photo: "https://cdn.exemplo.com/old.jpg", update: jest.fn().mockResolvedValue(undefined) };
 
             mockRequest.params = { id: "1" } as any;
             mockRequest.body = { phone: "11888887777", active: false };
@@ -131,7 +135,20 @@ describe("BarbersController", () => {
 
             await BarbersController.update(mockRequest as Request, mockResponse as Response);
 
-            expect(mockBarber.update).toHaveBeenCalledWith({ name: "Arthur", phone: "11888887777", active: false });
+            expect(mockBarber.update).toHaveBeenCalledWith({ name: "Arthur", phone: "11888887777", active: false, photo: "https://cdn.exemplo.com/old.jpg" });
+            expect(mockResponse.send).toHaveBeenCalledWith(mockBarber);
+        });
+
+        it("deve atualizar a foto quando enviada", async () => {
+            const mockBarber = { id: 1, name: "Arthur", phone: "11999999999", active: true, photo: "https://cdn.exemplo.com/old.jpg", update: jest.fn().mockResolvedValue(undefined) };
+
+            mockRequest.params = { id: "1" } as any;
+            mockRequest.body = { photo: "https://cdn.exemplo.com/new.jpg" };
+            (Barber.findByPk as jest.Mock).mockResolvedValue(mockBarber);
+
+            await BarbersController.update(mockRequest as Request, mockResponse as Response);
+
+            expect(mockBarber.update).toHaveBeenCalledWith({ name: "Arthur", phone: "11999999999", active: true, photo: "https://cdn.exemplo.com/new.jpg" });
             expect(mockResponse.send).toHaveBeenCalledWith(mockBarber);
         });
 

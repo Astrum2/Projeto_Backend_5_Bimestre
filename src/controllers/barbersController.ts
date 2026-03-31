@@ -4,8 +4,8 @@ import User from "../models/User";
 
 class BarbersController {
 
-    static async createFromData(data: { name: string; user_id: number; phone?: string | null }) {
-        const { name, user_id, phone } = data;
+    static async createFromData(data: { name: string; user_id: number; phone?: string | null; photo?: string | null }) {
+        const { name, user_id, phone, photo } = data;
 
         if (!name) {
             throw new Error("Nome é obrigatório!");
@@ -19,6 +19,7 @@ class BarbersController {
             name,
             user_id,
             phone: phone ?? null,
+            photo: photo ?? null,
         });
     }
 
@@ -44,16 +45,28 @@ class BarbersController {
     }
 
     static async create(req: Request, res: Response) {
-        const { name, user_id, phone } = req.body;
+        const { name, user_id, phone, photo } = req.body ?? {};
 
-        if (!name) {
-            return res.status(400).send({
-                message: "Nome é obrigatórios!"
-            });
+        if (!name || String(name).trim().length === 0) {
+            return res.status(400).send({ message: "Nome é obrigatório!" });
         }
 
-        const barber = await Barber.create({ name: name, user_id: user_id, phone: phone ?? null });
-        res.send(barber);
+        const existingBarber = await Barber.findOne({
+            where: { user_id: Number(user_id) },
+        });
+
+        if (existingBarber) {
+            return res.status(409).send({ message: "Já existe barbeiro para este usuário!" });
+        }
+
+        const barber = await Barber.create({
+            name: String(name).trim(),
+            user_id: Number(user_id),
+            phone: phone ?? null,
+            photo: photo ?? null,
+        });
+
+        return res.status(201).send(barber);
     }
 
     static async remove(req: Request, res: Response) {
@@ -70,23 +83,47 @@ class BarbersController {
 
     static async update(req: Request, res: Response) {
         const { id } = req.params;
-        const barber = await Barber.findByPk(Number(id));
-        const { name, phone, active } = req.body;
+        const barberId = Number(id);
+
+        if (Number.isNaN(barberId)) {
+            return res.status(400).send({ message: "Id inválido!" });
+        }
+
+        const barber = await Barber.findByPk(barberId);
+        const { name, phone, active, photo } = req.body ?? {};
 
         if (!barber) {
             return res.status(404).send({ message: "Barbeiro não encontrado!" });
         }
 
-        if (name === undefined && phone === undefined && active === undefined) {
+        if (!req.body || typeof req.body !== "object") {
+            return res.status(400).send({ message: "Corpo da requisição inválido!" });
+        }
+
+        const hasName = Object.prototype.hasOwnProperty.call(req.body, "name");
+        const hasPhone = Object.prototype.hasOwnProperty.call(req.body, "phone");
+        const hasActive = Object.prototype.hasOwnProperty.call(req.body, "active");
+        const hasPhoto = Object.prototype.hasOwnProperty.call(req.body, "photo");
+
+        if (!hasName && !hasPhone && !hasActive && !hasPhoto) {
             return res.status(400).send({
                 message: "Informe ao menos um campo para atualização!"
             });
         }
 
+        if (hasName && (!name || String(name).trim().length === 0)) {
+            return res.status(400).send({ message: "Nome inválido!" });
+        }
+
+        if (hasActive && typeof active !== "boolean") {
+            return res.status(400).send({ message: "Campo active deve ser booleano!" });
+        }
+
         await barber.update({
-            name: name ?? barber.name,
-            phone: phone ?? barber.phone,
-            active: active ?? barber.active,
+            name: hasName ? String(name).trim() : barber.name,
+            phone: hasPhone ? phone : barber.phone,
+            active: hasActive ? active : barber.active,
+            photo: hasPhoto ? photo : barber.photo,
         });
 
         return res.send(barber);

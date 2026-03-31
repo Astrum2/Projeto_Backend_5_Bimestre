@@ -143,6 +143,7 @@ class UsersController {
                 name: user.name,
                 user_id: user.id,
                 phone: req.body.phone ?? null,
+                photo: req.body.photo ?? null,
             });
         }
 
@@ -164,7 +165,7 @@ class UsersController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const user = await User.findByPk(Number(id));
-        const { name, email, password, cpf, admin } = req.body ?? {};
+        const { name, password, cpf, admin } = req.body ?? {};
 
         if (!req.body || typeof req.body !== "object") {
             return res.status(400).send({ message: "Corpo da requisição inválido!" });
@@ -174,32 +175,13 @@ class UsersController {
             return res.status(404).send({ message: "Usuário não encontrado!" });
         }
 
-        if (!name && !email && !password && !cpf && admin === undefined) {
+        if (!name && !password && !cpf && admin === undefined) {
             return res.status(400).send({
                 message: "Informe ao menos um campo para atualização!"
             });
         }
 
         let nextPassword = user.password;
-        let nextEmail = user.email;
-
-        if (email !== undefined) {
-            const emailValidation = await UsersController.isValidEmail(email, res);
-            if (emailValidation) {
-                return emailValidation;
-            }
-
-            const normalizedEmail = email.trim().toLowerCase();
-            const existingUser = await User.findOne({
-                where: { email: normalizedEmail }
-            });
-
-            if (existingUser && existingUser.id !== Number(id)) {
-                return res.status(400).send({ message: "Usuário já existe com esse Email" });
-            }
-
-            nextEmail = normalizedEmail;
-        }
 
         if (password !== undefined) {
             const passwordValidation = await UsersController.isStrongPassword(password, res);
@@ -219,7 +201,6 @@ class UsersController {
 
         await user.update({
             name: name ?? user.name,
-            email: nextEmail,
             password: nextPassword,
             cpf: cpf !== undefined ? UsersController.normalizeCpf(cpf) : user.cpf,
             admin: admin ?? user.admin,
