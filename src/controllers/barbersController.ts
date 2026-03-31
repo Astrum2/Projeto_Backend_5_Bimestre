@@ -85,10 +85,6 @@ class BarbersController {
         const { id } = req.params;
         const barberId = Number(id);
 
-        if (Number.isNaN(barberId)) {
-            return res.status(400).send({ message: "Id inválido!" });
-        }
-
         const barber = await Barber.findByPk(barberId);
         const { name, phone, active, photo } = req.body ?? {};
 
@@ -113,10 +109,6 @@ class BarbersController {
 
         if (hasName && (!name || String(name).trim().length === 0)) {
             return res.status(400).send({ message: "Nome inválido!" });
-        }
-
-        if (hasActive && typeof active !== "boolean") {
-            return res.status(400).send({ message: "Campo active deve ser booleano!" });
         }
 
         await barber.update({

@@ -167,10 +167,6 @@ class UsersController {
         const user = await User.findByPk(Number(id));
         const { name, password, cpf, admin } = req.body ?? {};
 
-        if (!req.body || typeof req.body !== "object") {
-            return res.status(400).send({ message: "Corpo da requisição inválido!" });
-        }
-
         if (!user) {
             return res.status(404).send({ message: "Usuário não encontrado!" });
         }
