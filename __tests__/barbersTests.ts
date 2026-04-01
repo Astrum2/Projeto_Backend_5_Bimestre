@@ -128,6 +128,8 @@ describe("BarbersController", () => {
     describe("update", () => {
         it("deve atualizar apenas os campos enviados", async () => {
             const mockBarber = { id: 1, name: "Arthur", phone: "11999999999", active: true, photo: "https://cdn.exemplo.com/old.jpg", update: jest.fn().mockResolvedValue(undefined) };
+            const updatedBarber = { ...mockBarber, phone: "11888887777", active: false };
+            mockBarber.update = jest.fn().mockResolvedValue(updatedBarber);
 
             mockRequest.params = { id: "1" } as any;
             mockRequest.body = { phone: "11888887777", active: false };
@@ -136,11 +138,13 @@ describe("BarbersController", () => {
             await BarbersController.update(mockRequest as Request, mockResponse as Response);
 
             expect(mockBarber.update).toHaveBeenCalledWith({ name: "Arthur", phone: "11888887777", active: false, photo: "https://cdn.exemplo.com/old.jpg" });
-            expect(mockResponse.send).toHaveBeenCalledWith(mockBarber);
+            expect(mockResponse.send).toHaveBeenCalledWith(updatedBarber);
         });
 
         it("deve atualizar a foto quando enviada", async () => {
             const mockBarber = { id: 1, name: "Arthur", phone: "11999999999", active: true, photo: "https://cdn.exemplo.com/old.jpg", update: jest.fn().mockResolvedValue(undefined) };
+            const updatedBarber = { ...mockBarber, photo: "https://cdn.exemplo.com/new.jpg" };
+            mockBarber.update = jest.fn().mockResolvedValue(updatedBarber);
 
             mockRequest.params = { id: "1" } as any;
             mockRequest.body = { photo: "https://cdn.exemplo.com/new.jpg" };
@@ -149,7 +153,7 @@ describe("BarbersController", () => {
             await BarbersController.update(mockRequest as Request, mockResponse as Response);
 
             expect(mockBarber.update).toHaveBeenCalledWith({ name: "Arthur", phone: "11999999999", active: true, photo: "https://cdn.exemplo.com/new.jpg" });
-            expect(mockResponse.send).toHaveBeenCalledWith(mockBarber);
+            expect(mockResponse.send).toHaveBeenCalledWith(updatedBarber);
         });
 
         it("deve retornar 400 quando nenhum campo for enviado", async () => {

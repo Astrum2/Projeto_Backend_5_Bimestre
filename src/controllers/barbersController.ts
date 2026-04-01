@@ -23,6 +23,24 @@ class BarbersController {
         });
     }
 
+    static async updateFromData(
+        barberId: number,
+        data: { name?: string; phone?: string | null; active?: boolean; photo?: string | null }
+    ) {
+        const barber = await Barber.findByPk(barberId);
+
+        if (!barber) {
+            throw new Error("Barbeiro não encontrado!");
+        }
+
+        return barber.update({
+            name: data.name !== undefined ? String(data.name).trim() : barber.name,
+            phone: data.phone !== undefined ? data.phone : barber.phone,
+            active: data.active !== undefined ? data.active : barber.active,
+            photo: data.photo !== undefined ? data.photo : barber.photo,
+        });
+    }
+
     static async list(req: Request, res: Response) {
         const barbers = await Barber.findAll({
             include: [
@@ -84,13 +102,7 @@ class BarbersController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const barberId = Number(id);
-
-        const barber = await Barber.findByPk(barberId);
         const { name, phone, active, photo } = req.body ?? {};
-
-        if (!barber) {
-            return res.status(404).send({ message: "Barbeiro não encontrado!" });
-        }
 
         if (!req.body || typeof req.body !== "object") {
             return res.status(400).send({ message: "Corpo da requisição inválido!" });
@@ -111,14 +123,20 @@ class BarbersController {
             return res.status(400).send({ message: "Nome inválido!" });
         }
 
-        await barber.update({
-            name: hasName ? String(name).trim() : barber.name,
-            phone: hasPhone ? phone : barber.phone,
-            active: hasActive ? active : barber.active,
-            photo: hasPhoto ? photo : barber.photo,
-        });
+        let updatedBarber;
 
-        return res.send(barber);
+        try {
+            updatedBarber = await BarbersController.updateFromData(barberId, {
+                name: hasName ? String(name).trim() : undefined,
+                phone: hasPhone ? phone : undefined,
+                active: hasActive ? active : undefined,
+                photo: hasPhoto ? photo : undefined,
+            });
+        } catch {
+            return res.status(404).send({ message: "Barbeiro não encontrado!" });
+        }
+
+        return res.send(updatedBarber);
     }
 }
 

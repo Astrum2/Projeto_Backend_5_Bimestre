@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import User from "../models/User";
 import BarbersController from "./barbersController";
+import Barber from "../models/Barber";
 
 class UsersController {
     static normalizeCpf(value: string) {
@@ -165,7 +166,7 @@ class UsersController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const user = await User.findByPk(Number(id));
-        const { name, password, cpf, admin } = req.body ?? {};
+        const { name, password, cpf, phone, photo, admin } = req.body ?? {};
 
         if (!user) {
             return res.status(404).send({ message: "Usuário não encontrado!" });
@@ -201,6 +202,31 @@ class UsersController {
             cpf: cpf !== undefined ? UsersController.normalizeCpf(cpf) : user.cpf,
             admin: admin ?? user.admin,
         });
+
+        const nextAdmin =
+            admin !== undefined
+                ? admin === true || admin === 1 || admin === "1"
+                : Boolean(user.admin);
+
+        const barber = await Barber.findOne({ where: { user_id: user.id } });
+
+        if (nextAdmin) {
+            if (barber) {
+                await barber.update({
+                    name: name ?? user.name,
+                    phone: phone !== undefined ? phone : barber.phone,
+                    photo: photo !== undefined ? photo : barber.photo,
+                    active: req.body.active ?? barber.active,
+                });
+            } else {
+                await BarbersController.createFromData({
+                    name: name ?? user.name,
+                    user_id: user.id,
+                    phone: phone ?? null,
+                    photo: photo ?? null,
+                });
+            }
+        }
 
         return res.send(user);
     }
