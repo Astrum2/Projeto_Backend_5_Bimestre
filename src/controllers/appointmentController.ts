@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Appointment from "../models/Appointment";
 import User from "../models/User";
 import Service from "../models/Service";
+import Barber from "../models/Barber";
 
 class AppointmentsController {
     static async list(req: Request, res: Response) {
@@ -21,6 +22,7 @@ class AppointmentsController {
             include: [
                 { model: User, as: "user", attributes: { exclude: ["password"] } },
                 { model: Service, as: "service" },
+                { model: Barber, as: "barber" },
             ],
         });
 
@@ -32,23 +34,25 @@ class AppointmentsController {
     }
 
     static async create(req: Request, res: Response) {
-        const { user_id, service_id, status, notes } = req.body;
+        const { user_id, service_id, barber_id, status, notes } = req.body;
 
-        if (user_id === undefined || service_id === undefined) {
+        if (user_id === undefined || service_id === undefined || barber_id === undefined) {
             return res.status(400).send({
-                message: "user_id e service_id são obrigatórios!"
+                message: "user_id, service_id e barber_id são obrigatórios!"
             });
         }
 
         const parsedUserId = Number(user_id);
         const parsedServiceId = Number(service_id);
+        const parsedBarberId = Number(barber_id);
 
         if (
             !Number.isInteger(parsedUserId) || parsedUserId <= 0 ||
-            !Number.isInteger(parsedServiceId) || parsedServiceId <= 0
+            !Number.isInteger(parsedServiceId) || parsedServiceId <= 0 ||
+            !Number.isInteger(parsedBarberId) || parsedBarberId <= 0
         ) {
             return res.status(400).send({
-                message: "user_id e service_id devem ser números inteiros válidos!"
+                message: "user_id, service_id e barber_id devem ser números inteiros válidos!"
             });
         }
 
@@ -62,9 +66,15 @@ class AppointmentsController {
             return res.status(404).send({ message: "Serviço não encontrado!" });
         }
 
+        const barber = await Barber.findByPk(parsedBarberId);
+        if (!barber) {
+            return res.status(404).send({ message: "Barbeiro não encontrado!" });
+        }
+
         const appointment = await Appointment.create({
             user_id: parsedUserId,
             service_id: parsedServiceId,
+            barber_id: parsedBarberId,
             status: status ?? "scheduled",
             notes: notes ?? null,
         });
@@ -75,7 +85,7 @@ class AppointmentsController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const appointment = await Appointment.findByPk(Number(id));
-        const { user_id, service_id, status, notes } = req.body;
+        const { user_id, service_id, barber_id, status, notes } = req.body;
 
         if (!appointment) {
             return res.status(404).send({ message: "Agendamento não encontrado!" });
@@ -84,6 +94,7 @@ class AppointmentsController {
         if (
             user_id === undefined &&
             service_id === undefined &&
+            barber_id === undefined &&
             status === undefined &&
             notes === undefined
         ) {
@@ -99,6 +110,7 @@ class AppointmentsController {
         await appointment.update({
             user_id: user_id,
             service_id: service_id,
+            barber_id: barber_id,
             status: status ?? appointment.status,
             notes: notes !== undefined ? notes : appointment.notes,
         });
