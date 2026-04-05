@@ -9,6 +9,8 @@ class Appointment extends Model {
     public user_id!: number;
     public service_id!: number;
     public barber_id!: number;
+    public date!: string;
+    public time!: string;
     public status!: string;
     public notes!: string | null;
     public created_at!: Date;
@@ -50,6 +52,14 @@ Appointment.init(
             },
             onUpdate: "CASCADE",
             onDelete: "RESTRICT",
+        },
+        date: {
+            type: DataTypes.DATEONLY,
+            allowNull: false,
+        },
+        time: {
+            type: DataTypes.TIME,
+            allowNull: false,
         },
         status: {
             type: DataTypes.STRING(20),

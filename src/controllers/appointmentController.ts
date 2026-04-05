@@ -5,6 +5,14 @@ import Service from "../models/Service";
 import Barber from "../models/Barber";
 
 class AppointmentsController {
+    private static isValidDate(value: string): boolean {
+        return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+    }
+
+    private static isValidTime(value: string): boolean {
+        return /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value);
+    }
+
     static async list(req: Request, res: Response) {
         const appointments = await Appointment.findAll({
             include: [
@@ -34,11 +42,17 @@ class AppointmentsController {
     }
 
     static async create(req: Request, res: Response) {
-        const { user_id, service_id, barber_id, status, notes } = req.body;
+        const { user_id, service_id, barber_id, date, time, status, notes } = req.body;
 
-        if (user_id === undefined || service_id === undefined || barber_id === undefined) {
+        if (
+            user_id === undefined ||
+            service_id === undefined ||
+            barber_id === undefined ||
+            !date ||
+            !time
+        ) {
             return res.status(400).send({
-                message: "user_id, service_id e barber_id são obrigatórios!"
+                message: "user_id, service_id, barber_id, date e time são obrigatórios!"
             });
         }
 
@@ -54,6 +68,14 @@ class AppointmentsController {
             return res.status(400).send({
                 message: "user_id, service_id e barber_id devem ser números inteiros válidos!"
             });
+        }
+
+        if (typeof date !== "string" || !AppointmentsController.isValidDate(date)) {
+            return res.status(400).send({ message: "date deve estar no formato YYYY-MM-DD!" });
+        }
+
+        if (typeof time !== "string" || !AppointmentsController.isValidTime(time)) {
+            return res.status(400).send({ message: "time deve estar no formato HH:mm ou HH:mm:ss!" });
         }
 
         const user = await User.findByPk(parsedUserId);
@@ -75,6 +97,8 @@ class AppointmentsController {
             user_id: parsedUserId,
             service_id: parsedServiceId,
             barber_id: parsedBarberId,
+            date,
+            time,
             status: status ?? "scheduled",
             notes: notes ?? null,
         });
@@ -85,7 +109,7 @@ class AppointmentsController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const appointment = await Appointment.findByPk(Number(id));
-        const { user_id, service_id, barber_id, status, notes } = req.body;
+        const { user_id, service_id, barber_id, date, time, status, notes } = req.body;
 
         if (!appointment) {
             return res.status(404).send({ message: "Agendamento não encontrado!" });
@@ -95,12 +119,28 @@ class AppointmentsController {
             user_id === undefined &&
             service_id === undefined &&
             barber_id === undefined &&
+            date === undefined &&
+            time === undefined &&
             status === undefined &&
             notes === undefined
         ) {
             return res.status(400).send({
                 message: "Informe ao menos um campo para atualização!"
             });
+        }
+
+        if (
+            date !== undefined &&
+            (typeof date !== "string" || !AppointmentsController.isValidDate(date))
+        ) {
+            return res.status(400).send({ message: "date deve estar no formato YYYY-MM-DD!" });
+        }
+
+        if (
+            time !== undefined &&
+            (typeof time !== "string" || !AppointmentsController.isValidTime(time))
+        ) {
+            return res.status(400).send({ message: "time deve estar no formato HH:mm ou HH:mm:ss!" });
         }
 
         if (status !== undefined && typeof status !== "string") {
@@ -111,6 +151,8 @@ class AppointmentsController {
             user_id: user_id,
             service_id: service_id,
             barber_id: barber_id,
+            date: date ?? appointment.date,
+            time: time ?? appointment.time,
             status: status ?? appointment.status,
             notes: notes !== undefined ? notes : appointment.notes,
         });

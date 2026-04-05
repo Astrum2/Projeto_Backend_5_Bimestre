@@ -3,6 +3,7 @@ import AppointmentsController from "../src/controllers/appointmentController";
 import Appointment from "../src/models/Appointment";
 import User from "../src/models/User";
 import Service from "../src/models/Service";
+import Barber from "../src/models/Barber";
 
 describe("AppointmentsController", () => {
   let mockRequest: Partial<Request>;
@@ -57,60 +58,103 @@ describe("AppointmentsController", () => {
 
   describe("create", () => {
     it("deve criar um agendamento com status e notes padrao", async () => {
-      mockRequest.body = { user_id: "1", service_id: "2" };
+      mockRequest.body = { user_id: "1", service_id: "2", barber_id: "3", date: "2026-04-05", time: "14:30" };
 
-      const createdAppointment = { id: 10, user_id: 1, service_id: 2, status: "scheduled", notes: null };
+      const createdAppointment = { id: 10, user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null };
 
       const userFindByPkSpy = jest.spyOn(User, "findByPk").mockResolvedValue({ id: 1 } as any);
       const serviceFindByPkSpy = jest.spyOn(Service, "findByPk").mockResolvedValue({ id: 2 } as any);
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk").mockResolvedValue({ id: 3 } as any);
       const createSpy = jest.spyOn(Appointment, "create").mockResolvedValue(createdAppointment as any);
 
       await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
 
       expect(userFindByPkSpy).toHaveBeenCalledWith(1);
       expect(serviceFindByPkSpy).toHaveBeenCalledWith(2);
-      expect(createSpy).toHaveBeenCalledWith({ user_id: 1, service_id: 2, status: "scheduled", notes: null });
+      expect(barberFindByPkSpy).toHaveBeenCalledWith(3);
+      expect(createSpy).toHaveBeenCalledWith({ user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null });
       expect(mockResponse.status).toHaveBeenCalledWith(201);
       expect(mockResponse.send).toHaveBeenCalledWith(createdAppointment);
     });
 
-    it("deve retornar 400 quando user_id ou service_id nao forem enviados", async () => {
-      mockRequest.body = { user_id: 1 };
+    it("deve retornar 400 quando user_id, service_id, barber_id, date ou time nao forem enviados", async () => {
+      mockRequest.body = { user_id: 1, service_id: 2, date: "2026-04-05", time: "14:30" };
 
       const userFindByPkSpy = jest.spyOn(User, "findByPk");
       const serviceFindByPkSpy = jest.spyOn(Service, "findByPk");
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk");
       const createSpy = jest.spyOn(Appointment, "create");
 
       await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
 
       expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.send).toHaveBeenCalledWith({ message: "user_id e service_id são obrigatórios!" });
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "user_id, service_id, barber_id, date e time são obrigatórios!" });
       expect(userFindByPkSpy).not.toHaveBeenCalled();
       expect(serviceFindByPkSpy).not.toHaveBeenCalled();
+      expect(barberFindByPkSpy).not.toHaveBeenCalled();
       expect(createSpy).not.toHaveBeenCalled();
     });
 
     it("deve retornar 400 quando os ids forem invalidos", async () => {
-      mockRequest.body = { user_id: "abc", service_id: -1 };
+      mockRequest.body = { user_id: "abc", service_id: -1, barber_id: "x", date: "2026-04-05", time: "14:30" };
 
       const userFindByPkSpy = jest.spyOn(User, "findByPk");
       const serviceFindByPkSpy = jest.spyOn(Service, "findByPk");
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk");
       const createSpy = jest.spyOn(Appointment, "create");
 
       await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
 
       expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.send).toHaveBeenCalledWith({ message: "user_id e service_id devem ser números inteiros válidos!" });
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "user_id, service_id e barber_id devem ser números inteiros válidos!" });
       expect(userFindByPkSpy).not.toHaveBeenCalled();
       expect(serviceFindByPkSpy).not.toHaveBeenCalled();
+      expect(barberFindByPkSpy).not.toHaveBeenCalled();
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it("deve retornar 400 quando date for invalida", async () => {
+      mockRequest.body = { user_id: 1, service_id: 2, barber_id: 3, date: "05-04-2026", time: "14:30" };
+
+      const userFindByPkSpy = jest.spyOn(User, "findByPk");
+      const serviceFindByPkSpy = jest.spyOn(Service, "findByPk");
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk");
+      const createSpy = jest.spyOn(Appointment, "create");
+
+      await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "date deve estar no formato YYYY-MM-DD!" });
+      expect(userFindByPkSpy).not.toHaveBeenCalled();
+      expect(serviceFindByPkSpy).not.toHaveBeenCalled();
+      expect(barberFindByPkSpy).not.toHaveBeenCalled();
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it("deve retornar 400 quando time for invalido", async () => {
+      mockRequest.body = { user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "25:99" };
+
+      const userFindByPkSpy = jest.spyOn(User, "findByPk");
+      const serviceFindByPkSpy = jest.spyOn(Service, "findByPk");
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk");
+      const createSpy = jest.spyOn(Appointment, "create");
+
+      await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "time deve estar no formato HH:mm ou HH:mm:ss!" });
+      expect(userFindByPkSpy).not.toHaveBeenCalled();
+      expect(serviceFindByPkSpy).not.toHaveBeenCalled();
+      expect(barberFindByPkSpy).not.toHaveBeenCalled();
       expect(createSpy).not.toHaveBeenCalled();
     });
 
     it("deve retornar 404 quando o usuario nao existir", async () => {
-      mockRequest.body = { user_id: 1, service_id: 2 };
+      mockRequest.body = { user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30" };
 
       const userFindByPkSpy = jest.spyOn(User, "findByPk").mockResolvedValue(null as any);
       const serviceFindByPkSpy = jest.spyOn(Service, "findByPk");
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk");
       const createSpy = jest.spyOn(Appointment, "create");
 
       await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
@@ -119,14 +163,16 @@ describe("AppointmentsController", () => {
       expect(mockResponse.status).toHaveBeenCalledWith(404);
       expect(mockResponse.send).toHaveBeenCalledWith({ message: "Usuário não encontrado!" });
       expect(serviceFindByPkSpy).not.toHaveBeenCalled();
+      expect(barberFindByPkSpy).not.toHaveBeenCalled();
       expect(createSpy).not.toHaveBeenCalled();
     });
 
     it("deve retornar 404 quando o servico nao existir", async () => {
-      mockRequest.body = { user_id: 1, service_id: 2 };
+      mockRequest.body = { user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30" };
 
       const userFindByPkSpy = jest.spyOn(User, "findByPk").mockResolvedValue({ id: 1 } as any);
       const serviceFindByPkSpy = jest.spyOn(Service, "findByPk").mockResolvedValue(null as any);
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk");
       const createSpy = jest.spyOn(Appointment, "create");
 
       await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
@@ -135,24 +181,73 @@ describe("AppointmentsController", () => {
       expect(serviceFindByPkSpy).toHaveBeenCalledWith(2);
       expect(mockResponse.status).toHaveBeenCalledWith(404);
       expect(mockResponse.send).toHaveBeenCalledWith({ message: "Serviço não encontrado!" });
+      expect(barberFindByPkSpy).not.toHaveBeenCalled();
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it("deve retornar 404 quando o barbeiro nao existir", async () => {
+      mockRequest.body = { user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30" };
+
+      const userFindByPkSpy = jest.spyOn(User, "findByPk").mockResolvedValue({ id: 1 } as any);
+      const serviceFindByPkSpy = jest.spyOn(Service, "findByPk").mockResolvedValue({ id: 2 } as any);
+      const barberFindByPkSpy = jest.spyOn(Barber, "findByPk").mockResolvedValue(null as any);
+      const createSpy = jest.spyOn(Appointment, "create");
+
+      await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
+
+      expect(userFindByPkSpy).toHaveBeenCalledWith(1);
+      expect(serviceFindByPkSpy).toHaveBeenCalledWith(2);
+      expect(barberFindByPkSpy).toHaveBeenCalledWith(3);
+      expect(mockResponse.status).toHaveBeenCalledWith(404);
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "Barbeiro não encontrado!" });
       expect(createSpy).not.toHaveBeenCalled();
     });
   });
 
   describe("update", () => {
     it("deve atualizar um agendamento existente", async () => {
-      const mockAppointment = { id: 1, status: "scheduled", notes: null, update: jest.fn().mockResolvedValue(undefined) };
+      const mockAppointment = { id: 1, date: "2026-04-05", time: "14:30", barber_id: 4, status: "scheduled", notes: null, update: jest.fn().mockResolvedValue(undefined) };
 
       mockRequest.params = { id: "1" } as any;
-      mockRequest.body = { status: "done", notes: "Cliente atendido" };
+      mockRequest.body = { status: "done", notes: "Cliente atendido", date: "2026-04-06", time: "15:00" };
 
       const findByPkSpy = jest.spyOn(Appointment, "findByPk").mockResolvedValue(mockAppointment as any);
 
       await AppointmentsController.update(mockRequest as Request, mockResponse as Response);
 
       expect(findByPkSpy).toHaveBeenCalledWith(1);
-      expect(mockAppointment.update).toHaveBeenCalledWith({ user_id: undefined, service_id: undefined, status: "done", notes: "Cliente atendido" });
+      expect(mockAppointment.update).toHaveBeenCalledWith({ user_id: undefined, service_id: undefined, barber_id: undefined, date: "2026-04-06", time: "15:00", status: "done", notes: "Cliente atendido" });
       expect(mockResponse.send).toHaveBeenCalledWith(mockAppointment);
+    });
+
+    it("deve retornar 400 quando date for invalida no update", async () => {
+      const mockAppointment = { id: 1, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null, update: jest.fn() };
+
+      mockRequest.params = { id: "1" } as any;
+      mockRequest.body = { date: "06/04/2026" };
+
+      jest.spyOn(Appointment, "findByPk").mockResolvedValue(mockAppointment as any);
+
+      await AppointmentsController.update(mockRequest as Request, mockResponse as Response);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "date deve estar no formato YYYY-MM-DD!" });
+      expect(mockAppointment.update).not.toHaveBeenCalled();
+    });
+
+    it("deve retornar 400 quando time for invalido no update", async () => {
+      const mockAppointment = { id: 1, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null, update: jest.fn() };
+
+      mockRequest.params = { id: "1" } as any;
+      mockRequest.body = { time: "99:00" };
+
+      jest.spyOn(Appointment, "findByPk").mockResolvedValue(mockAppointment as any);
+
+      await AppointmentsController.update(mockRequest as Request, mockResponse as Response);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockResponse.send).toHaveBeenCalledWith({ message: "time deve estar no formato HH:mm ou HH:mm:ss!" });
+      expect(mockAppointment.update).not.toHaveBeenCalled();
     });
 
     it("deve retornar 400 quando nenhum campo for enviado", async () => {
