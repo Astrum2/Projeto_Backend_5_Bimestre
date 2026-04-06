@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
+import { Transaction } from "sequelize";
 import { randomUUID } from "crypto";
 import BarberSchedule from "../models/BarberSchedule";
 import Appointment from "../models/Appointment";
-import User from "../models/User";
+import Barber from "../models/Barber";
 import Service from "../models/Service";
 
 const SLOT_MINUTES = 15;
@@ -19,45 +20,51 @@ function toTime(totalMinutes: number): string {
     return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":00";
 }
 
+type ScheduleCreateInput = {
+    barber_id: number;
+    date: string;
+    start: string;
+    appointment_id: number;
+    service_id?: number;
+    status?: string;
+    notes?: string | null;
+    transaction?: Transaction;
+};
+
+type ScheduleCreateResult = {
+    slot_group: string;
+    slots_created: number;
+    slots: BarberSchedule[];
+};
+
+type ScheduleCreateError = {
+    status: number;
+    message: string;
+};
+
 class BarberScheduleController {
 
-    static async list(req: Request, res: Response) {
-        const schedule = await BarberSchedule.findAll({
-            include: [
-                { model: User, as: "user", attributes: { exclude: ["password"] } },
-                { model: Service, as: "service" },
-                { model: Appointment, as: "appointment" }
-            ],
-        });
-
-
-        res.send(schedule);
+    private static createError(status: number, message: string): ScheduleCreateError {
+        return { status, message };
     }
 
-    static async getById(req: Request, res: Response) {
-        const { id } = req.params;
-        const barberSchedule = await BarberSchedule.findByPk(Number(id), {
-            include: [
-                { model: User, as: "user", attributes: { exclude: ["password"] } },
-                { model: Service, as: "service" },
-                { model: Appointment, as: "appointment" }
-            ],
-        });
-
-        if (!barberSchedule) {
-            return res.status(404).send({ message: "Agenda não encontrada" })
+    static isScheduleCreateError(error: unknown): error is ScheduleCreateError {
+        if (!error || typeof error !== "object") {
+            return false;
         }
 
-        res.send(barberSchedule);
+        const candidate = error as Partial<ScheduleCreateError>;
+        return typeof candidate.status === "number" && typeof candidate.message === "string";
     }
 
-    static async create(req: Request, res: Response) {
-        const { barber_id, date, start, appointment_id, status, notes } = req.body;
+    static async createFromAppointmentData(data: ScheduleCreateInput): Promise<ScheduleCreateResult> {
+        const { barber_id, date, start, appointment_id, service_id, status, notes, transaction } = data;
 
         if (barber_id === undefined || !date || !start || appointment_id === undefined) {
-            return res.status(400).send({
-                message: "barber_id, date, start e appointment_id são obrigatórios!",
-            });
+            throw BarberScheduleController.createError(
+                400,
+                "barber_id, date, start e appointment_id são obrigatórios!"
+            );
         }
 
         const parsedBarberId = Number(barber_id);
@@ -67,24 +74,52 @@ class BarberScheduleController {
             !Number.isInteger(parsedBarberId) || parsedBarberId <= 0 ||
             !Number.isInteger(parsedAppointmentId) || parsedAppointmentId <= 0
         ) {
-            return res.status(400).send({
-                message: "barber_id e appointment_id devem ser inteiros válidos!",
-            });
+            throw BarberScheduleController.createError(
+                400,
+                "barber_id e appointment_id devem ser inteiros válidos!"
+            );
         }
 
-        const appointment = await Appointment.findByPk(parsedAppointmentId);
+        const appointment = transaction
+            ? await Appointment.findByPk(parsedAppointmentId, { transaction })
+            : await Appointment.findByPk(parsedAppointmentId);
+
         if (!appointment) {
-            return res.status(404).send({ message: "Agendamento não encontrado!" });
+            throw BarberScheduleController.createError(404, "Agendamento não encontrado!");
         }
 
-        const service = await Service.findByPk(appointment.service_id);
+        const parsedServiceId = service_id !== undefined ? Number(service_id) : Number(appointment.service_id);
+
+        if (!Number.isInteger(parsedServiceId) || parsedServiceId <= 0) {
+            throw BarberScheduleController.createError(400, "service_id do agendamento é inválido!");
+        }
+
+        const service = transaction
+            ? await Service.findByPk(parsedServiceId, { transaction })
+            : await Service.findByPk(parsedServiceId);
+
         if (!service) {
-            return res.status(404).send({ message: "Serviço do agendamento não encontrado!" });
+            throw BarberScheduleController.createError(404, "Serviço do agendamento não encontrado!");
         }
 
-        const totalDuration = Number(service.duration_minutes);
+        const durationRaw =
+            (service as any).duration_minutes ??
+            (typeof (service as any).get === "function" ? (service as any).get("duration_minutes") : undefined) ??
+            (typeof (service as any).getDataValue === "function" ? (service as any).getDataValue("duration_minutes") : undefined) ??
+            (service as any).duration;
+
+        const normalizedDuration =
+            typeof durationRaw === "string"
+                ? Number(durationRaw.replace(",", ".").trim())
+                : Number(durationRaw);
+
+        if (!Number.isFinite(normalizedDuration) || normalizedDuration <= 0) {
+            throw BarberScheduleController.createError(400, `Duração do serviço inválida! valor=${String(durationRaw)}`);
+        }
+
+        const totalDuration = normalizedDuration;
         if (!Number.isFinite(totalDuration) || totalDuration <= 0) {
-            return res.status(400).send({ message: "Duração do serviço inválida!" });
+            throw BarberScheduleController.createError(400, "Duração do serviço inválida!");
         }
 
         const slotsCount = Math.ceil(totalDuration / SLOT_MINUTES);
@@ -110,25 +145,77 @@ class BarberScheduleController {
 
         const starts = slots.map((slot) => slot.start);
 
-        const conflict = await BarberSchedule.findOne({
-            where: {
-                barber_id: parsedBarberId,
-                date,
-                start: { [Op.in]: starts },
-            },
-        });
+        const conflict = transaction
+            ? await BarberSchedule.findOne({
+                where: {
+                    barber_id: parsedBarberId,
+                    date,
+                    start: { [Op.in]: starts },
+                },
+                transaction,
+            })
+            : await BarberSchedule.findOne({
+                where: {
+                    barber_id: parsedBarberId,
+                    date,
+                    start: { [Op.in]: starts },
+                },
+            });
 
         if (conflict) {
-            return res.status(409).send({ message: "Já existe slot ocupado nesse horário." });
+            throw BarberScheduleController.createError(409, "Já existe slot ocupado nesse horário.");
         }
 
-        const created = await BarberSchedule.bulkCreate(slots);
+        const created = transaction
+            ? await BarberSchedule.bulkCreate(slots, { transaction })
+            : await BarberSchedule.bulkCreate(slots);
 
-        return res.status(201).send({
+        return {
             slot_group: groupId,
             slots_created: created.length,
             slots: created,
+        };
+    }
+
+    static async list(req: Request, res: Response) {
+        const schedule = await BarberSchedule.findAll({
+            include: [
+                { model: Barber, as: "barber", attributes: { exclude: ["password"] } },
+                { model: Appointment, as: "appointment" }
+            ],
         });
+
+
+        res.send(schedule);
+    }
+
+    static async getById(req: Request, res: Response) {
+        const { id } = req.params;
+        const barberSchedule = await BarberSchedule.findByPk(Number(id), {
+            include: [
+                { model: Barber, as: "barber", attributes: { exclude: ["password"] } },
+                { model: Appointment, as: "appointment" }
+            ],
+        });
+
+        if (!barberSchedule) {
+            return res.status(404).send({ message: "Agenda não encontrada" })
+        }
+
+        res.send(barberSchedule);
+    }
+
+    static async create(req: Request, res: Response) {
+        try {
+            const result = await BarberScheduleController.createFromAppointmentData(req.body);
+            return res.status(201).send(result);
+        } catch (error) {
+            if (BarberScheduleController.isScheduleCreateError(error)) {
+                return res.status(error.status).send({ message: error.message });
+            }
+
+            return res.status(500).send({ message: "Erro ao criar agenda do barbeiro!" });
+        }
     }
 
     static async update(req: Request, res: Response) {

@@ -4,6 +4,8 @@ import Appointment from "../src/models/Appointment";
 import User from "../src/models/User";
 import Service from "../src/models/Service";
 import Barber from "../src/models/Barber";
+import BarberScheduleController from "../src/controllers/barberScheduleController";
+import sequelize from "../src/config/database";
 
 describe("AppointmentsController", () => {
   let mockRequest: Partial<Request>;
@@ -14,6 +16,7 @@ describe("AppointmentsController", () => {
     mockResponse = { send: jest.fn().mockReturnThis(), status: jest.fn().mockReturnThis() };
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    jest.spyOn(sequelize, "transaction").mockImplementation(async (callback: any) => callback({}));
   });
 
   describe("list", () => {
@@ -66,13 +69,29 @@ describe("AppointmentsController", () => {
       const serviceFindByPkSpy = jest.spyOn(Service, "findByPk").mockResolvedValue({ id: 2 } as any);
       const barberFindByPkSpy = jest.spyOn(Barber, "findByPk").mockResolvedValue({ id: 3 } as any);
       const createSpy = jest.spyOn(Appointment, "create").mockResolvedValue(createdAppointment as any);
+      const createScheduleSpy = jest
+        .spyOn(BarberScheduleController, "createFromAppointmentData")
+        .mockResolvedValue({ slot_group: "group-1", slots_created: 2, slots: [] as any });
 
       await AppointmentsController.create(mockRequest as Request, mockResponse as Response);
 
       expect(userFindByPkSpy).toHaveBeenCalledWith(1);
       expect(serviceFindByPkSpy).toHaveBeenCalledWith(2);
       expect(barberFindByPkSpy).toHaveBeenCalledWith(3);
-      expect(createSpy).toHaveBeenCalledWith({ user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null });
+      expect(createSpy).toHaveBeenCalledWith(
+        { user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null },
+        { transaction: {} }
+      );
+      expect(createScheduleSpy).toHaveBeenCalledWith({
+        barber_id: 3,
+        date: "2026-04-05",
+        start: "14:30",
+        appointment_id: 10,
+        service_id: 2,
+        status: "booked",
+        notes: null,
+        transaction: {},
+      });
       expect(mockResponse.status).toHaveBeenCalledWith(201);
       expect(mockResponse.send).toHaveBeenCalledWith(createdAppointment);
     });

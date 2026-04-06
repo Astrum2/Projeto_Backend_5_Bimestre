@@ -3,6 +3,8 @@ import Appointment from "../models/Appointment";
 import User from "../models/User";
 import Service from "../models/Service";
 import Barber from "../models/Barber";
+import BarberScheduleController from "./barberScheduleController";
+import sequelize from "../config/database";
 
 class AppointmentsController {
     private static isValidDate(value: string): boolean {
@@ -93,17 +95,43 @@ class AppointmentsController {
             return res.status(404).send({ message: "Barbeiro não encontrado!" });
         }
 
-        const appointment = await Appointment.create({
-            user_id: parsedUserId,
-            service_id: parsedServiceId,
-            barber_id: parsedBarberId,
-            date,
-            time,
-            status: status ?? "scheduled",
-            notes: notes ?? null,
-        });
+        try {
+            const appointment = await sequelize.transaction(async (transaction) => {
+                const createdAppointment = await Appointment.create(
+                    {
+                        user_id: parsedUserId,
+                        service_id: parsedServiceId,
+                        barber_id: parsedBarberId,
+                        date,
+                        time,
+                        status: status ?? "scheduled",
+                        notes: notes ?? null,
+                    },
+                    { transaction }
+                );
 
-        return res.status(201).send(appointment);
+                await BarberScheduleController.createFromAppointmentData({
+                    barber_id: parsedBarberId,
+                    date,
+                    start: time,
+                    appointment_id: createdAppointment.id,
+                    service_id: parsedServiceId,
+                    status: "booked",
+                    notes: notes ?? null,
+                    transaction,
+                });
+
+                return createdAppointment;
+            });
+
+            return res.status(201).send(appointment);
+        } catch (error) {
+            if (BarberScheduleController.isScheduleCreateError(error)) {
+                return res.status(error.status).send({ message: error.message });
+            }
+
+            return res.status(500).send({ message: "Erro ao criar agendamento!" });
+        }
     }
 
     static async update(req: Request, res: Response) {
