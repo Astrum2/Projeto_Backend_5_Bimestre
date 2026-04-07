@@ -1,7 +1,6 @@
 import express, { Request, Response, Router } from 'express';
 import UsersController from './controllers/usersController';
 import BarbersController from './controllers/barbersController';
-import ReviewsController from './controllers/reviewsController';
 import ServicesController from './controllers/servicesController';
 import AppointmentsController from './controllers/appointmentController';
 import BarberScheduleController from "./controllers/barberScheduleController";
@@ -60,12 +59,6 @@ router.post('/barbers', BarbersController.create);
 router.get('/barbers/:id', authMiddleware, BarbersController.getById);
 router.put('/barbers/:id', authMiddleware, BarbersController.update);
 router.delete('/barbers/:id', authMiddleware, BarbersController.remove);
-
-router.get('/reviews', ReviewsController.list);
-router.post('/reviews', authMiddleware, ReviewsController.create);
-router.get('/reviews/:id', authMiddleware, ReviewsController.getById);
-router.put('/reviews/:id', authMiddleware, ReviewsController.update);
-router.delete('/reviews/:id', authMiddleware, ReviewsController.remove);
 
 router.get('/services', ServicesController.list);
 router.post('/services', authMiddleware, ServicesController.create);
