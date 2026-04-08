@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import AppointmentsController from "../src/controllers/appointmentController";
 import Appointment from "../src/models/Appointment";
 import User from "../src/models/User";
 import Service from "../src/models/Service";
 import Barber from "../src/models/Barber";
+import BarberSchedule from "../src/models/BarberSchedule";
 import BarberScheduleController from "../src/controllers/barberScheduleController";
 import sequelize from "../src/config/database";
 
@@ -225,18 +227,108 @@ describe("AppointmentsController", () => {
 
   describe("update", () => {
     it("deve atualizar um agendamento existente", async () => {
-      const mockAppointment = { id: 1, date: "2026-04-05", time: "14:30", barber_id: 4, status: "scheduled", notes: null, update: jest.fn().mockResolvedValue(undefined) };
+      const mockAppointment = {
+        id: 1,
+        user_id: 2,
+        service_id: 3,
+        date: "2026-04-05",
+        time: "14:30",
+        barber_id: 4,
+        status: "scheduled",
+        notes: null,
+        update: jest.fn().mockResolvedValue({
+          id: 1,
+          user_id: 2,
+          service_id: 3,
+          date: "2026-04-06",
+          time: "15:00",
+          barber_id: 4,
+          status: "done",
+          notes: "Cliente atendido",
+        }),
+      };
 
       mockRequest.params = { id: "1" } as any;
       mockRequest.body = { status: "done", notes: "Cliente atendido", date: "2026-04-06", time: "15:00" };
 
       const findByPkSpy = jest.spyOn(Appointment, "findByPk").mockResolvedValue(mockAppointment as any);
+      const destroySpy = jest.spyOn(BarberSchedule, "destroy").mockResolvedValue(2 as any);
+      const createScheduleSpy = jest
+        .spyOn(BarberScheduleController, "createFromAppointmentData")
+        .mockResolvedValue({ slot_group: "group-1", slots_created: 2, slots: [] as any });
 
       await AppointmentsController.update(mockRequest as Request, mockResponse as Response);
 
       expect(findByPkSpy).toHaveBeenCalledWith(1);
-      expect(mockAppointment.update).toHaveBeenCalledWith({ user_id: undefined, service_id: undefined, barber_id: undefined, date: "2026-04-06", time: "15:00", status: "done", notes: "Cliente atendido" });
-      expect(mockResponse.send).toHaveBeenCalledWith(mockAppointment);
+      expect(mockAppointment.update).toHaveBeenCalledWith(
+        { user_id: 2, service_id: 3, barber_id: 4, date: "2026-04-06", time: "15:00", status: "done", notes: "Cliente atendido" },
+        { transaction: {} }
+      );
+      expect(destroySpy).toHaveBeenCalledWith({ where: { appointment_id: 1 }, transaction: {} });
+      expect(createScheduleSpy).toHaveBeenCalledWith({
+        barber_id: 4,
+        date: "2026-04-06",
+        start: "15:00",
+        appointment_id: 1,
+        service_id: 3,
+        status: "booked",
+        notes: "Cliente atendido",
+        transaction: {},
+      });
+      expect(mockResponse.send).toHaveBeenCalledWith({
+        id: 1,
+        user_id: 2,
+        service_id: 3,
+        date: "2026-04-06",
+        time: "15:00",
+        barber_id: 4,
+        status: "done",
+        notes: "Cliente atendido",
+      });
+    });
+
+    it("deve atualizar sem recriar agenda quando apenas status for alterado", async () => {
+      const updatedAppointment = {
+        id: 1,
+        user_id: 2,
+        service_id: 3,
+        date: "2026-04-05",
+        time: "14:30",
+        barber_id: 4,
+        status: "done",
+        notes: null,
+      };
+
+      const mockAppointment = {
+        id: 1,
+        user_id: 2,
+        service_id: 3,
+        date: "2026-04-05",
+        time: "14:30",
+        barber_id: 4,
+        status: "scheduled",
+        notes: null,
+        update: jest.fn().mockResolvedValue(updatedAppointment),
+      };
+
+      mockRequest.params = { id: "1" } as any;
+      mockRequest.body = { status: "done" };
+
+      jest.spyOn(Appointment, "findByPk").mockResolvedValue(mockAppointment as any);
+      const destroySpy = jest.spyOn(BarberSchedule, "destroy").mockResolvedValue(0 as any);
+      const createScheduleSpy = jest
+        .spyOn(BarberScheduleController, "createFromAppointmentData")
+        .mockResolvedValue({ slot_group: "group-1", slots_created: 2, slots: [] as any });
+
+      await AppointmentsController.update(mockRequest as Request, mockResponse as Response);
+
+      expect(mockAppointment.update).toHaveBeenCalledWith(
+        { user_id: 2, service_id: 3, barber_id: 4, date: "2026-04-05", time: "14:30", status: "done", notes: null },
+        { transaction: {} }
+      );
+      expect(destroySpy).not.toHaveBeenCalled();
+      expect(createScheduleSpy).not.toHaveBeenCalled();
+      expect(mockResponse.send).toHaveBeenCalledWith(updatedAppointment);
     });
 
     it("deve retornar 400 quando date for invalida no update", async () => {
@@ -314,15 +406,35 @@ describe("AppointmentsController", () => {
 
   describe("remove", () => {
     it("deve remover um agendamento existente", async () => {
-      const mockAppointment = { id: 1, destroy: jest.fn().mockResolvedValue(undefined) };
+      const mockAppointment = { id: 1, destroy: jest.fn().mockResolvedValue(undefined), getDataValue: jest.fn().mockReturnValue(1) };
 
       mockRequest.params = { id: "1" } as any;
 
       const findByPkSpy = jest.spyOn(Appointment, "findByPk").mockResolvedValue(mockAppointment as any);
+      const findScheduleSpy = jest.spyOn(BarberSchedule, "findAll").mockResolvedValue([
+        { slot_group: "group-a" },
+        { slot_group: "group-a" },
+        { slot_group: "group-b" },
+      ] as any);
+      const destroyScheduleSpy = jest.spyOn(BarberSchedule, "destroy").mockResolvedValue(3 as any);
 
       await AppointmentsController.remove(mockRequest as Request, mockResponse as Response);
 
       expect(findByPkSpy).toHaveBeenCalledWith(1);
+      expect(findScheduleSpy).toHaveBeenCalledWith({
+        where: { appointment_id: 1 },
+        attributes: ["slot_group"],
+        transaction: {},
+      });
+      expect(destroyScheduleSpy).toHaveBeenCalledWith({
+        where: {
+          [Op.or]: [
+            { appointment_id: 1 },
+            { slot_group: { [Op.in]: ["group-a", "group-b"] } },
+          ],
+        },
+        transaction: {},
+      });
       expect(mockAppointment.destroy).toHaveBeenCalledTimes(1);
       expect(mockResponse.status).toHaveBeenCalledWith(204);
       expect(mockResponse.send).toHaveBeenCalledWith();

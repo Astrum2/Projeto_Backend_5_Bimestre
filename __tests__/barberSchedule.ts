@@ -277,13 +277,13 @@ describe("BarberScheduleController", () => {
             await BarberScheduleController.update(mockRequest as Request, mockResponse as Response);
 
             expect(mockSchedule.update).toHaveBeenCalledWith({
-                barber_id: undefined,
+                barber_id: 2,
                 date: "2026-03-21",
                 start: "09:00:00",
                 end: "09:15:00",
-                duration_minutes: undefined,
+                duration_minutes: 15,
                 status: "done",
-                appointment_id: undefined,
+                appointment_id: 10,
                 slot_group: "group-123",
                 notes: "Concluído",
             });

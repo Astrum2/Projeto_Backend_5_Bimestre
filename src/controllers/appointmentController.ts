@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import Appointment from "../models/Appointment";
 import User from "../models/User";
 import Service from "../models/Service";
 import Barber from "../models/Barber";
+import BarberSchedule from "../models/BarberSchedule";
 import BarberScheduleController from "./barberScheduleController";
 import sequelize from "../config/database";
 
@@ -138,9 +140,19 @@ class AppointmentsController {
         const { id } = req.params;
         const appointment = await Appointment.findByPk(Number(id));
         const { user_id, service_id, barber_id, date, time, status, notes } = req.body;
+        const appointmentId = Number(appointment?.getDataValue?.("id") ?? appointment?.id ?? Number(id));
+        const nextUserId = user_id ?? appointment?.user_id;
+        const nextServiceId = service_id ?? appointment?.service_id;
+        const nextBarberId = barber_id ?? appointment?.barber_id;
+        const nextDate = date ?? appointment?.date;
+        const nextTime = time ?? appointment?.time;
 
         if (!appointment) {
             return res.status(404).send({ message: "Agendamento não encontrado!" });
+        }
+
+        if (!Number.isInteger(appointmentId) || appointmentId <= 0) {
+            return res.status(500).send({ message: "Id do agendamento inválido!" });
         }
 
         if (
@@ -175,17 +187,57 @@ class AppointmentsController {
             return res.status(400).send({ message: "status deve ser texto!" });
         }
 
-        await appointment.update({
-            user_id: user_id,
-            service_id: service_id,
-            barber_id: barber_id,
-            date: date ?? appointment.date,
-            time: time ?? appointment.time,
-            status: status ?? appointment.status,
-            notes: notes !== undefined ? notes : appointment.notes,
-        });
+        const shouldSyncSchedule =
+            barber_id !== undefined ||
+            service_id !== undefined ||
+            date !== undefined ||
+            time !== undefined ||
+            notes !== undefined;
 
-        return res.send(appointment);
+        try {
+            const updatedAppointment = await sequelize.transaction(async (transaction) => {
+                const updated = await appointment.update(
+                    {
+                        user_id: nextUserId,
+                        service_id: nextServiceId,
+                        barber_id: nextBarberId,
+                        date: nextDate,
+                        time: nextTime,
+                        status: status ?? appointment.status,
+                        notes: notes !== undefined ? notes : appointment.notes,
+                    },
+                    { transaction }
+                );
+
+                if (shouldSyncSchedule) {
+                    await BarberSchedule.destroy({
+                        where: { appointment_id: appointmentId },
+                        transaction,
+                    });
+
+                    await BarberScheduleController.createFromAppointmentData({
+                        barber_id: Number(nextBarberId),
+                        date: String(nextDate),
+                        start: String(nextTime),
+                        appointment_id: appointmentId,
+                        service_id: Number(nextServiceId),
+                        status: "booked",
+                        notes: updated.notes ?? null,
+                        transaction,
+                    });
+                }
+
+                return updated;
+            });
+
+            return res.send(updatedAppointment);
+        } catch (error) {
+            if (BarberScheduleController.isScheduleCreateError(error)) {
+                return res.status(error.status).send({ message: error.message });
+            }
+
+            return res.status(500).send({ message: "Erro ao atualizar agendamento! Erro: " + error });
+        }
     }
 
     static async remove(req: Request, res: Response) {
@@ -196,8 +248,51 @@ class AppointmentsController {
             return res.status(404).send({ message: "Agendamento não encontrado!" });
         }
 
-        await appointment.destroy();
-        return res.status(204).send();
+        const appointmentId = Number(
+            appointment.getDataValue?.("id") ?? appointment.id ?? Number(id)
+        );
+
+        if (!Number.isInteger(appointmentId) || appointmentId <= 0) {
+            return res.status(500).send({ message: "Id do agendamento inválido!" });
+        }
+
+        try {
+            await sequelize.transaction(async (transaction) => {
+                const linkedSlots = await BarberSchedule.findAll({
+                    where: { appointment_id: appointmentId },
+                    attributes: ["slot_group"],
+                    transaction,
+                });
+
+                const slotGroups = Array.from(
+                    new Set(
+                        linkedSlots
+                            .map((slot) => slot.slot_group)
+                            .filter((group): group is string => typeof group === "string" && group.length > 0)
+                    )
+                );
+
+                const scheduleWhere = slotGroups.length > 0
+                    ? {
+                        [Op.or]: [
+                            { appointment_id: appointmentId },
+                            { slot_group: { [Op.in]: slotGroups } },
+                        ],
+                    }
+                    : { appointment_id: appointmentId };
+
+                await BarberSchedule.destroy({
+                    where: scheduleWhere,
+                    transaction,
+                });
+
+                await appointment.destroy({ transaction });
+            });
+
+            return res.status(204).send();
+        } catch (error) {
+            return res.status(500).send({ message: "Erro ao remover agendamento! Erro: " + error });
+        }
     }
 }
 

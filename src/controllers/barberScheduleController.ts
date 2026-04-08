@@ -114,7 +114,7 @@ class BarberScheduleController {
                 : Number(durationRaw);
 
         if (!Number.isFinite(normalizedDuration) || normalizedDuration <= 0) {
-            throw BarberScheduleController.createError(400, `Duração do serviço inválida! valor=${String(durationRaw)}`);
+            throw BarberScheduleController.createError(400, "Duração do serviço inválida!");
         }
 
         const totalDuration = normalizedDuration;
@@ -232,6 +232,9 @@ class BarberScheduleController {
             slot_group,
             notes,
         } = req.body;
+        const nextBarberId = barber_id ?? barberSchedule?.barber_id;
+        const nextDurationMinutes = duration_minutes ?? barberSchedule?.duration_minutes;
+        const nextAppointmentId = appointment_id ?? barberSchedule?.appointment_id;
 
         if (!barberSchedule) {
             return res.status(404).send({ message: "Agendamento não encontrado!" });
@@ -255,13 +258,13 @@ class BarberScheduleController {
 
 
         await barberSchedule.update({
-            barber_id: barber_id,
+            barber_id: nextBarberId,
             date: date ?? barberSchedule.date,
             start: start ?? barberSchedule.start,
             end: end ?? barberSchedule.end,
-            duration_minutes: duration_minutes,
+            duration_minutes: nextDurationMinutes,
             status: status ?? barberSchedule.status,
-            appointment_id: appointment_id,
+            appointment_id: nextAppointmentId,
             slot_group: slot_group !== undefined ? slot_group : barberSchedule.slot_group,
             notes: notes !== undefined ? notes : barberSchedule.notes,
         });
