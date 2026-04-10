@@ -48,12 +48,16 @@ class BarberScheduleController {
         return { status, message };
     }
 
-    static isScheduleCreateError(error: unknown): error is ScheduleCreateError {
-        if (!error || typeof error !== "object") {
+    static isScheduleCreateError(error: object | null): error is ScheduleCreateError {
+        if (!error) {
             return false;
         }
 
-        const candidate = error as Partial<ScheduleCreateError>;
+        if (!("status" in error) || !("message" in error)) {
+            return false;
+        }
+
+        const candidate = error as { status?: number; message?: string };
         return typeof candidate.status === "number" && typeof candidate.message === "string";
     }
 
@@ -103,15 +107,11 @@ class BarberScheduleController {
         }
 
         const durationRaw =
-            (service as any).duration_minutes ??
-            (typeof (service as any).get === "function" ? (service as any).get("duration_minutes") : undefined) ??
-            (typeof (service as any).getDataValue === "function" ? (service as any).getDataValue("duration_minutes") : undefined) ??
-            (service as any).duration;
+            service.duration_minutes ??
+            service.get("duration_minutes") ??
+            service.getDataValue("duration_minutes");
 
-        const normalizedDuration =
-            typeof durationRaw === "string"
-                ? Number(durationRaw.replace(",", ".").trim())
-                : Number(durationRaw);
+        const normalizedDuration = Number(durationRaw);
 
         if (!Number.isFinite(normalizedDuration) || normalizedDuration <= 0) {
             throw BarberScheduleController.createError(400, "Duração do serviço inválida!");
@@ -210,8 +210,10 @@ class BarberScheduleController {
             const result = await BarberScheduleController.createFromAppointmentData(req.body);
             return res.status(201).send(result);
         } catch (error) {
-            if (BarberScheduleController.isScheduleCreateError(error)) {
-                return res.status(error.status).send({ message: error.message });
+            const normalizedError = typeof error === "object" && error !== null ? error : null;
+
+            if (BarberScheduleController.isScheduleCreateError(normalizedError)) {
+                return res.status(normalizedError.status).send({ message: normalizedError.message });
             }
 
             return res.status(500).send({ message: "Erro ao criar agenda do barbeiro!" });

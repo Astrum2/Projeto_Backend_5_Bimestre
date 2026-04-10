@@ -153,6 +153,12 @@ class UsersController {
 
     static async remove(req: Request, res: Response) {
         const { id } = req.params;
+        const authUserId = Number(res.locals.authUserId);
+
+        if (Number.isInteger(authUserId) && authUserId !== Number(id)) {
+            return res.status(403).send({ message: "Você só pode modificar o seu próprio usuário!" });
+        }
+
         const user = await User.findByPk(Number(id));
 
         if (!user) {
@@ -165,6 +171,12 @@ class UsersController {
 
     static async update(req: Request, res: Response) {
         const { id } = req.params;
+        const authUserId = Number(res.locals.authUserId);
+
+        if (Number.isInteger(authUserId) && authUserId !== Number(id)) {
+            return res.status(403).send({ message: "Você só pode modificar o seu próprio usuário!" });
+        }
+
         const user = await User.findByPk(Number(id));
         const { name, password, cpf, phone, photo, admin } = req.body ?? {};
 

@@ -128,8 +128,10 @@ class AppointmentsController {
 
             return res.status(201).send(appointment);
         } catch (error) {
-            if (BarberScheduleController.isScheduleCreateError(error)) {
-                return res.status(error.status).send({ message: error.message });
+            const normalizedError = typeof error === "object" && error !== null ? error : null;
+
+            if (BarberScheduleController.isScheduleCreateError(normalizedError)) {
+                return res.status(normalizedError.status).send({ message: normalizedError.message });
             }
 
             return res.status(500).send({ message: "Erro ao criar agendamento!" });
@@ -232,8 +234,10 @@ class AppointmentsController {
 
             return res.send(updatedAppointment);
         } catch (error) {
-            if (BarberScheduleController.isScheduleCreateError(error)) {
-                return res.status(error.status).send({ message: error.message });
+            const normalizedError = typeof error === "object" && error !== null ? error : null;
+
+            if (BarberScheduleController.isScheduleCreateError(normalizedError)) {
+                return res.status(normalizedError.status).send({ message: normalizedError.message });
             }
 
             return res.status(500).send({ message: "Erro ao atualizar agendamento! Erro: " + error });
