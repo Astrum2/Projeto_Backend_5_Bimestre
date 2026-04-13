@@ -3,6 +3,9 @@ import bcrypt from "bcrypt";
 import User from "../models/User";
 import BarbersController from "./barbersController";
 import Barber from "../models/Barber";
+import Appointment from "../models/Appointment";
+import BarberSchedule from "../models/BarberSchedule";
+import sequelize from "../config/database";
 
 class UsersController {
     static normalizeCpf(value: string) {
@@ -154,18 +157,49 @@ class UsersController {
     static async remove(req: Request, res: Response) {
         const { id } = req.params;
         const authUserId = Number(res.locals.authUserId);
+        const userId = Number(id);
 
-        if (Number.isInteger(authUserId) && authUserId !== Number(id)) {
+        if (Number.isInteger(authUserId) && authUserId !== userId) {
             return res.status(403).send({ message: "Você só pode modificar o seu próprio usuário!" });
         }
 
-        const user = await User.findByPk(Number(id));
+        const user = await User.findByPk(userId);
 
         if (!user) {
             return res.status(404).send({ message: "Usuário não encontrado!" });
         }
 
-        await user.destroy();
+        await sequelize.transaction(async (transaction) => {
+            const barber = await Barber.findOne({ where: { user_id: userId }, transaction });
+
+            if (barber) {
+                const barberId = Number(barber.get("id"));
+
+                if (!Number.isInteger(barberId)) {
+                    throw new Error("Barbeiro encontrado com id inválido");
+                }
+
+                await BarberSchedule.destroy({
+                    where: { barber_id: barberId },
+                    transaction,
+                });
+
+                await Appointment.destroy({
+                    where: { barber_id: barberId },
+                    transaction,
+                });
+
+                await barber.destroy({ transaction });
+            }
+
+            await Appointment.destroy({
+                where: { user_id: userId },
+                transaction,
+            });
+
+            await user.destroy({ transaction });
+        });
+
         return res.status(204).send();
     }
 
