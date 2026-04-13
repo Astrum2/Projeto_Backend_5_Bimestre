@@ -249,10 +249,7 @@ class UsersController {
             admin: admin ?? user.admin,
         });
 
-        const nextAdmin =
-            admin !== undefined
-                ? admin === true || admin === 1 || admin === "1"
-                : Boolean(user.admin);
+        const nextAdmin =  admin !== undefined ? admin === true || admin === 1 || admin === "1" : Boolean(user.admin);
 
         const barber = await Barber.findOne({ where: { user_id: user.id } });
 

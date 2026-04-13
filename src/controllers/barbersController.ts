@@ -87,18 +87,6 @@ class BarbersController {
         return res.status(201).send(barber);
     }
 
-    static async remove(req: Request, res: Response) {
-        const { id } = req.params;
-        const barber = await Barber.findByPk(Number(id));
-
-        if (!barber) {
-            return res.status(404).send({ message: "Barbeiro não encontrado!" });
-        }
-
-        await barber.destroy();
-        return res.status(204).send();
-    }
-
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const barberId = Number(id);
@@ -137,6 +125,18 @@ class BarbersController {
         }
 
         return res.send(updatedBarber);
+    }
+
+    static async remove(req: Request, res: Response) {
+        const { id } = req.params;
+        const barber = await Barber.findByPk(Number(id));
+
+        if (!barber) {
+            return res.status(404).send({ message: "Barbeiro não encontrado!" });
+        }
+
+        await barber.destroy();
+        return res.status(204).send();
     }
 }
 

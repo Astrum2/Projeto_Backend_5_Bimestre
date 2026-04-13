@@ -84,9 +84,7 @@ class BarberScheduleController {
             );
         }
 
-        const appointment = transaction
-            ? await Appointment.findByPk(parsedAppointmentId, { transaction })
-            : await Appointment.findByPk(parsedAppointmentId);
+        const appointment = transaction ? await Appointment.findByPk(parsedAppointmentId, { transaction }) : await Appointment.findByPk(parsedAppointmentId);
 
         if (!appointment) {
             throw BarberScheduleController.createError(404, "Agendamento não encontrado!");
@@ -98,18 +96,13 @@ class BarberScheduleController {
             throw BarberScheduleController.createError(400, "service_id do agendamento é inválido!");
         }
 
-        const service = transaction
-            ? await Service.findByPk(parsedServiceId, { transaction })
-            : await Service.findByPk(parsedServiceId);
+        const service = transaction ? await Service.findByPk(parsedServiceId, { transaction }) : await Service.findByPk(parsedServiceId);
 
         if (!service) {
             throw BarberScheduleController.createError(404, "Serviço do agendamento não encontrado!");
         }
 
-        const durationRaw =
-            service.duration_minutes ??
-            service.get("duration_minutes") ??
-            service.getDataValue("duration_minutes");
+        const durationRaw = service.duration_minutes ?? service.get("duration_minutes") ?? service.getDataValue("duration_minutes");
 
         const normalizedDuration = Number(durationRaw);
 
@@ -145,36 +138,20 @@ class BarberScheduleController {
 
         const starts = slots.map((slot) => slot.start);
 
-        const conflict = transaction
-            ? await BarberSchedule.findOne({
-                where: {
-                    barber_id: parsedBarberId,
-                    date,
-                    start: { [Op.in]: starts },
-                },
-                transaction,
-            })
-            : await BarberSchedule.findOne({
-                where: {
-                    barber_id: parsedBarberId,
-                    date,
-                    start: { [Op.in]: starts },
-                },
-            });
+        const conflict = transaction ? await BarberSchedule.findOne({
+            where: { barber_id: parsedBarberId, date, start: { [Op.in]: starts } },
+            transaction,
+        }) : await BarberSchedule.findOne({
+            where: { barber_id: parsedBarberId, date, start: { [Op.in]: starts } },
+        });
 
         if (conflict) {
             throw BarberScheduleController.createError(409, "Já existe slot ocupado nesse horário.");
         }
 
-        const created = transaction
-            ? await BarberSchedule.bulkCreate(slots, { transaction })
-            : await BarberSchedule.bulkCreate(slots);
+        const created = transaction ? await BarberSchedule.bulkCreate(slots, { transaction }) : await BarberSchedule.bulkCreate(slots);
 
-        return {
-            slot_group: groupId,
-            slots_created: created.length,
-            slots: created,
-        };
+        return { slot_group: groupId, slots_created: created.length, slots: created };
     }
 
     static async list(req: Request, res: Response) {
@@ -223,17 +200,7 @@ class BarberScheduleController {
     static async update(req: Request, res: Response) {
         const { id } = req.params;
         const barberSchedule = await BarberSchedule.findByPk(Number(id));
-        const {
-            barber_id,
-            date,
-            start,
-            end,
-            duration_minutes,
-            status,
-            appointment_id,
-            slot_group,
-            notes,
-        } = req.body;
+        const { barber_id, date, start, end, duration_minutes, status, appointment_id, slot_group, notes, } = req.body;
         const nextBarberId = barber_id ?? barberSchedule?.barber_id;
         const nextDurationMinutes = duration_minutes ?? barberSchedule?.duration_minutes;
         const nextAppointmentId = appointment_id ?? barberSchedule?.appointment_id;
