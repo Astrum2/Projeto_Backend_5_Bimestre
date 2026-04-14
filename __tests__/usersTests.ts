@@ -3,7 +3,21 @@ import UsersController from "../src/controllers/usersController";
 import User from "../src/models/User";
 import bcrypt from "bcrypt";
 
-jest.mock("../src/models/User");
+jest.mock("../src/models/User", () => {
+    const actual = jest.requireActual("../src/models/User");
+    const User = actual.default;
+
+    User.findAll = jest.fn();
+    User.findByPk = jest.fn();
+    User.findOne = jest.fn();
+    User.create = jest.fn();
+
+    return {
+        __esModule: true,
+        default: User,
+    };
+});
+
 jest.mock("bcrypt");
 
 describe("UsersController", () => {
@@ -13,6 +27,7 @@ describe("UsersController", () => {
     beforeEach(() => {
         mockRequest = {};
         mockResponse = {
+            locals: {},
             send: jest.fn().mockReturnThis(),
             status: jest.fn().mockReturnThis(),
             json: jest.fn().mockReturnThis(),
