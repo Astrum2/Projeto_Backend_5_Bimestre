@@ -80,7 +80,7 @@ describe("ServicesController", () => {
   });
 
   describe("update", () => {
-    it("sDeve atualizar um serviço", async () => {
+    it("Deve atualizar um serviço", async () => {
       const mockService = { name: "Corte", price: 50, update: jest.fn() };
       mockRequest.params = { id: "1" };
       mockRequest.body = { price: 60 };
