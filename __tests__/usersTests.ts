@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import UsersController from "../src/controllers/usersController";
 import User from "../src/models/User";
+import Barber from "../src/models/Barber";
 import bcrypt from "bcrypt";
 
 jest.mock("../src/models/User", () => {
@@ -152,11 +153,13 @@ describe("UsersController", () => {
     describe("update", () => {
         it("deve atualizar campos enviados e manter os não enviados", async () => {
             const mockUser = { id: 1, name: "Ana", password: "old-hash", cpf: "12345678901", admin: false, update: jest.fn().mockResolvedValue(undefined) };
+            const mockBarber = { phone: null, photo: null, active: true, update: jest.fn().mockResolvedValue(undefined) };
 
             mockRequest.params = { id: "1" } as any;
             mockRequest.body = { name: "Ana Maria", admin: true };
 
             (User.findByPk as jest.Mock).mockResolvedValue(mockUser);
+            jest.spyOn(Barber, "findOne").mockResolvedValue(mockBarber as any);
 
             await UsersController.update(mockRequest as Request, mockResponse as Response);
 
@@ -164,7 +167,7 @@ describe("UsersController", () => {
             expect(mockResponse.send).toHaveBeenCalledWith(mockUser);
         });
 
-        it("deve hashear nova senha quando password for enviado", async () => {
+        it("deve hashear nova senha quando a senha for enviada", async () => {
             const mockUser = { id: 1, name: "Ana", password: "old-hash", cpf: "12345678901", admin: false, update: jest.fn().mockResolvedValue(undefined) };
 
             mockRequest.params = { id: "1" } as any;

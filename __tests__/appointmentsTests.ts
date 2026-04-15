@@ -62,7 +62,7 @@ describe("AppointmentsController", () => {
   });
 
   describe("create", () => {
-    it("deve criar um agendamento com status e notes padrao", async () => {
+    it("deve criar um agendamento com status e notas padrão", async () => {
       mockRequest.body = { user_id: "1", service_id: "2", barber_id: "3", date: "2026-04-05", time: "14:30" };
 
       const createdAppointment = { id: 10, user_id: 1, service_id: 2, barber_id: 3, date: "2026-04-05", time: "14:30", status: "scheduled", notes: null };
@@ -134,7 +134,7 @@ describe("AppointmentsController", () => {
       expect(createSpy).not.toHaveBeenCalled();
     });
 
-    it("deve retornar 400 quando date for invalida", async () => {
+    it("deve retornar 400 quando a data for invalida", async () => {
       mockRequest.body = { user_id: 1, service_id: 2, barber_id: 3, date: "05-04-2026", time: "14:30" };
 
       const userFindByPkSpy = jest.spyOn(User, "findByPk");
